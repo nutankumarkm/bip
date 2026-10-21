@@ -50,10 +50,40 @@
 **Next:** M7 — More connectors (hik_isapi, biotime, db_read, file_import, cosec stub, capability registry, docs/CAPABILITIES.md)
 
 ## M7 — More connectors
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** 
+- `hik_isapi`: Hikvision ISAPI pull adapter (multipart MIME response parsing, XML/JSON event parsing, offset-aware datetime normalization, cursor-based poll, user/card provision, reboot command, real-time alert event stream). Emulated with `HikISAPIMock`.
+- `biotime`: ZKTeco BioTime 8.5/Cloud REST API adapter (token auth with auto-refresh, `/personnel/api/iclock/`, transaction querying with cursor, user/card push). Emulated with `BioTimeMock`.
+- `db_read`: Read-only SQL database poller (Postgres, MySQL, SQL Server, SQLite via SQLAlchemy) with cursor tracking on incremental column (`punch_time` or `id`), column mapping, schema isolation.
+- `file_import`: CSV and XLSX punch parser (`FileImporter` with smart column detection for PIN, timestamp, device_id, in_out; validation, invalid row quarantine, import report summary) + `FileImportAdapter` + Consumer API endpoint `POST /v1/orgs/{org_id}/imports/punches`.
+- `cosec`: Matrix COSEC stub adapter raising `NotSupportedError(Capability.LIVE_EVENTS)` with clear unsupported reason.
+- `registry.yaml`: Declarative connector capability registry for all 6 connectors (`zk_tcp`, `hik_isapi`, `biotime`, `db_read`, `file_import`, `cosec`) specifying pull/push capabilities, wire protocols, auth mechanisms, and sample configs.
+- `docs/CAPABILITIES.md`: Generated capability matrix document with comparison table, detail cards, and config examples.
+**Evidence:** 157 unit tests pass (20 new for M7); conformance test passes for all connectors; malformed rows rejected with structured import report; offset/naive timezone bugs fixed; lint clean.
+**Open issues:** Database connector tests use SQLite in-memory engine.
+**Next:** M8 — Ops console
 
 ## M8 — Ops console
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:**
+- Ops console web application (`bip.api.ops`) using server-rendered Jinja2 templates + HTMX (ADR-008) with dark theme UI.
+- Authentication & Security (`auth.py`): console admin credentials (PBKDF2-HMAC-SHA256 password hashing), TOTP second factor (pyotp, 30s window), cryptographically random session tokens (32 bytes urlsafe), CSRF token generation and validation on state-modifying actions.
+- Ops In-Memory Stores (`store.py`): `AuditEntry` logging all administrative actions (actor, action, resource_type, resource_id, timestamp, detail), `ApprovalRequest` two-person rule approval queue, `_PARTNERS` registry.
+- Ops Router (`router.py`) & Pages (`templates/ops_*.html`):
+  - `/ops/login`: Email + password authentication with error handling.
+  - `/ops/totp`: 6-digit TOTP verification step before session activation.
+  - `/ops/`: Operational dashboard with live metrics (partners, orgs, sites, devices, gateways, pending approvals) and recent audit logs.
+  - `/ops/partners`: Partner management with create partner form.
+  - `/ops/orgs`: Multi-tenant organization list with partner filtering.
+  - `/ops/sites`: Physical site listing with device counts.
+  - `/ops/devices`: Device fleet overview with vendor, model, and status.
+  - `/ops/gateways`: Edge gateway pairing management with approval-gated revocation requests.
+  - `/ops/approvals`: Two-person rule approval queue (requestor cannot self-approve, status tracking).
+  - `/ops/audit`: Searchable and filterable audit trail by resource type and actor with pagination.
+**Evidence:** 184 unit tests pass (27 new for M8 in `test_ops_console.py`); all pages smoke tested; unauthenticated redirects verified; wrong password & wrong TOTP rejected; CSRF enforcement verified; two-person approval enforced (self-approval strictly prohibited); Starlette keyword-arg TemplateResponse fix verified.
+**Open issues:** In-memory session and audit storage (Postgres-backed in Docker Compose).
+**Next:** M9 — Hardening and handover
 
 ## M9 — Hardening and handover
 **Status:** NOT STARTED
+
