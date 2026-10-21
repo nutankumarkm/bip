@@ -129,16 +129,19 @@ def _full_session(email: str = "admin@test.com") -> str:
     return create_session(email, pre_totp=False)
 
 
-@pytest.mark.parametrize("path", [
-    "/ops/",
-    "/ops/partners",
-    "/ops/orgs",
-    "/ops/sites",
-    "/ops/devices",
-    "/ops/gateways",
-    "/ops/approvals",
-    "/ops/audit",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/ops/",
+        "/ops/partners",
+        "/ops/orgs",
+        "/ops/sites",
+        "/ops/devices",
+        "/ops/gateways",
+        "/ops/approvals",
+        "/ops/audit",
+    ],
+)
 def test_page_redirects_when_unauthenticated(path: str) -> None:
     resp = client.get(path, follow_redirects=False)
     assert resp.status_code == 303

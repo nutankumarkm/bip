@@ -2,29 +2,26 @@
 
 from __future__ import annotations
 
-import secrets
+import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Form, Request, Response, status
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from bip.api.ops.auth import (
     SESSION_COOKIE,
+    _verify_password,
     create_session,
     delete_session,
     generate_csrf,
-    get_authenticated_session,
     get_console_user,
     get_session,
     verify_csrf,
     verify_totp,
-    _verify_password,
 )
 from bip.api.ops.store import (
-    AuditEntry,
-    ApprovalRequest,
     create_approval,
     list_approvals,
     list_audit,
@@ -40,9 +37,7 @@ _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 # Register tojson filter
-import json as _json
-
-templates.env.filters["tojson"] = lambda v, **kw: _json.dumps(v, **kw)
+templates.env.filters["tojson"] = lambda v, **kw: json.dumps(v, **kw)
 templates.env.globals["get_flashed_messages"] = lambda **kw: []
 
 
@@ -71,12 +66,12 @@ router = APIRouter(prefix="/ops", tags=["ops"])
 def _get_api_stats() -> dict[str, int]:
     """Pull counts from the shared in-memory API stores."""
     try:
+        from bip.api.routes.gateway import _gateways  # type: ignore[attr-defined]
         from bip.api.routes.v1 import (
+            _devices,
             _orgs,
             _sites,
-            _devices,
         )
-        from bip.api.routes.gateway import _gateways  # type: ignore[attr-defined]
     except Exception:
         _orgs = _sites = _devices = _gateways = {}
 
@@ -96,6 +91,7 @@ def _get_api_stats() -> dict[str, int]:
 def _get_gateway_list() -> list[dict[str, Any]]:
     try:
         from bip.api.routes.gateway import _gateways  # type: ignore[attr-defined]
+
         return list(_gateways.values()) if isinstance(_gateways, dict) else []
     except Exception:
         return []
@@ -103,8 +99,9 @@ def _get_gateway_list() -> list[dict[str, Any]]:
 
 def _get_partner_list() -> list[dict[str, Any]]:
     try:
-        from bip.api.routes.v1 import _orgs
         from bip.api.ops.store import _PARTNERS
+        from bip.api.routes.v1 import _orgs
+
         result = []
         for pid, p in _PARTNERS.items():
             org_count = sum(1 for o in _orgs.values() if o.get("partner_id") == pid)
@@ -116,8 +113,9 @@ def _get_partner_list() -> list[dict[str, Any]]:
 
 def _get_org_list(partner_id: str | None = None) -> list[dict[str, Any]]:
     try:
-        from bip.api.routes.v1 import _orgs, _sites, _devices
         from bip.api.ops.store import _PARTNERS
+        from bip.api.routes.v1 import _devices, _orgs, _sites
+
         result = []
         for oid, o in _orgs.items():
             if partner_id and o.get("partner_id") != partner_id:
@@ -133,7 +131,8 @@ def _get_org_list(partner_id: str | None = None) -> list[dict[str, Any]]:
 
 def _get_site_list() -> list[dict[str, Any]]:
     try:
-        from bip.api.routes.v1 import _orgs, _sites, _devices
+        from bip.api.routes.v1 import _devices, _orgs, _sites
+
         result = []
         for sid, s in _sites.items():
             org_name = _orgs.get(s.get("org_id", ""), {}).get("name", "—")
@@ -146,9 +145,10 @@ def _get_site_list() -> list[dict[str, Any]]:
 
 def _get_device_list() -> list[dict[str, Any]]:
     try:
-        from bip.api.routes.v1 import _orgs, _sites, _devices
+        from bip.api.routes.v1 import _devices, _orgs, _sites
+
         result = []
-        for did, d in _devices.items():
+        for _did, d in _devices.items():
             site_name = _sites.get(d.get("site_id", ""), {}).get("name", "—")
             org_name = _orgs.get(d.get("org_id", ""), {}).get("name", "—")
             result.append({**d, "site_name": site_name, "org_name": org_name})
@@ -174,6 +174,7 @@ def _ctx(
     token = request.cookies.get(SESSION_COOKIE)
     if token:
         from bip.api.ops.auth import _SESSIONS
+
         if token in _SESSIONS:
             _SESSIONS[token]["csrf"] = csrf
     return {
@@ -191,6 +192,7 @@ def _check_csrf(request: Request, csrf_token: str) -> bool:
     if not token:
         return False
     from bip.api.ops.auth import _SESSIONS
+
     stored = _SESSIONS.get(token, {}).get("csrf")
     # Accept any non-empty token in test mode (stored may be None if test doesn't pre-set it)
     if stored is None:
@@ -246,6 +248,7 @@ async def totp_get(request: Request) -> Any:
     csrf = generate_csrf()
     if token:
         from bip.api.ops.auth import _SESSIONS
+
         if token in _SESSIONS:
             _SESSIONS[token]["csrf"] = csrf
     return _render(request, "ops_totp.html", {"user": None, "csrf_token": csrf})
@@ -345,8 +348,10 @@ async def partners_post(
 
     import uuid
     from datetime import UTC, datetime
+
     try:
         from bip.api.ops.store import _PARTNERS
+
         pid = str(uuid.uuid4())
         _PARTNERS[pid] = {"id": pid, "name": name, "created_at": datetime.now(UTC)}
         log_audit(sess["email"], "create_partner", "partner", pid, {"name": name})
@@ -439,7 +444,9 @@ async def gateway_revoke_request(
         detail={"gateway_id": gateway_id},
     )
     log_audit(sess["email"], "request_revoke_gateway", "gateway", gateway_id)
-    return RedirectResponse(f"/ops/approvals?success=Revoke+request+submitted+%28id%3A+{req.id[:8]}%29", status_code=303)
+    return RedirectResponse(
+        f"/ops/approvals?success=Revoke+request+submitted+%28id%3A+{req.id[:8]}%29", status_code=303
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -508,6 +515,7 @@ def _execute_gateway_revoke(gateway_id: str, actor: str) -> None:
     """Actually revoke the gateway after two-person approval."""
     try:
         from bip.api.routes.gateway import _gateways  # type: ignore[attr-defined]
+
         gw = _gateways.get(gateway_id)
         if gw:
             gw["active"] = False

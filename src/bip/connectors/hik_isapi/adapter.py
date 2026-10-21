@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Any, ClassVar, Literal
+from typing import ClassVar, Literal
 
 import httpx
 

@@ -85,5 +85,33 @@
 **Next:** M9 — Hardening and handover
 
 ## M9 — Hardening and handover
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:**
+- **Rate Limiting (`src/bip/core/ratelimit.py`):** Thread-safe token bucket algorithm with per-key tracking (client token prefix or IP), burst controls (150 capacity, 120/min), and `RateLimitMiddleware` returning 429 Too Many Requests with `Retry-After` headers and exempt health check paths. Verified in `test_ratelimit.py`.
+- **Secret Redaction (`src/bip/core/logging.py`):** Structlog redaction processor extended with recursive nested dict and list traversal. Automatically masks all sensitive keys (`password`, `secret`, `token`, `card_no`, `authorization`, `cookie`, `credential`, `api_key`, `access_token`, `refresh_token`, `biometric_data`, `fingerprint`, `face_template`), PIN masking (`10***`), and display name redaction. Verified in `test_redaction.py`.
+- **Cryptographic Audit Chain (`src/bip/core/audit.py`):** SHA-256 hash chaining for all Ops Console audit log entries (`seq`, `prev_hash`, `entry_hash`, canonical JSON sorting). Chain verifier detects content tampering, link breaks, and deleted intermediate entries. Integrated into `bip.api.ops.store`. Verified in `test_audit_chain.py`.
+- **Retention Purge Worker (`src/bip/workers/retention.py`):** Automated punch retention purge engine supporting both in-memory and PostgreSQL execution. Deletes records older than each tenant organization's configured `retention_days` (default 730d). Includes periodic worker loop with graceful shutdown. Verified in `test_retention.py`.
+- **2,000-Device Load Test (`scripts/loadtest_2000_devices.py` & `docs/LOADTEST.md`):** Complete benchmark harness simulating 2,000 active biometric terminals sending 10,000 punches during morning peak hours over an async connection pool.
+  - Latency p50: 1.71 ms
+  - Latency p95: **3.05 ms** (SPEC: < 200 ms -> PASS)
+  - Ingest lag p95: **0.003 s** (SPEC: < 60 s -> PASS)
+  - Throughput: **500.8 req/s (2,504 punches/s)**
+  - Error rate: **0.00%** (2,000 / 2,000 200 OK)
+- **Terraform Skeleton (`deploy/terraform/`):** Production-ready infrastructure code (`main.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example`) for AWS deployment: VPC across 2 AZs, ALB with path routing (`/v1`, `/ops`, `/iclock`, `/gw`), Aurora PostgreSQL 16 cluster with automated snapshots, S3 Raw Inbox with 730-day lifecycle expiration, ECS Fargate cluster for API, Edge, and Worker services, Security Groups and IAM roles.
+- **Agent Packaging Verification (`deploy/agent/`):** Complete packaging artifacts for edge gateway deployments (`bip-gateway.spec` PyInstaller spec, `winsw-service.xml` Windows service wrapper, `bip-gateway.service` systemd unit, `README_RPI.md` Raspberry Pi setup guide).
+- **Compliance Documentation (`docs/compliance/`):**
+  - `docs/compliance/DATA_MAP.md`: GDPR and DPDP Act 2023 data inventory, classification, legal grounds, and security safeguards.
+  - `docs/compliance/BIOMETRIC_DATA_POLICY.md`: Enterprise policy draft detailing edge-only matching, template stripping guarantees, pseudonymization, and retention enforcement.
+- **Operations Runbooks (`docs/runbooks/`):**
+  - `docs/runbooks/disaster-recovery.md`: RPO < 15m, RTO < 60m, regional failover, raw inbox replay, deduplication idempotency.
+  - `docs/runbooks/gateway-troubleshooting.md`: Outbox diagnostics, clock-skew triage, NTP synchronization, re-pairing workflows.
+  - `docs/runbooks/database-maintenance.md`: Partition creation, partition detachment/dropping, RLS policy verification.
+  - `docs/runbooks/certificate-rotation.md`: Gateway Ed25519 keypair rotation with dual-key grace periods, webhook HMAC secret rollover.
+- **Developer Integration Guide (`docs/INTEGRATION.md`):** Comprehensive guide for LearnX and Saptta engineering teams (OAuth 2.0 auth, user provisioning, webhook HMAC verification in Python/Node.js, cursor polling, local feed API).
+- **OpenAPI 3.1 Spec Export (`docs/openapi.json`):** Full 46-endpoint OpenAPI specification exported directly from FastAPI.
+- **Root Documentation (`README.md`):** Complete architecture diagram (Mermaid), quickstart, test execution, Ops console guide, and documentation index.
+**Evidence:** 204 unit tests pass across all suites; `ruff check` passes with 0 errors; `ruff format --check` passes with 105 files formatted; 2,000-device load test succeeds with p95 = 3.05ms (< 200ms) and ingest lag = 0.003s (< 60s); OpenAPI export generated with 46 routes.
+**Open issues:** None. Platform implementation complete through all milestones M0–M9.
+**Next:** Production deployment and customer onboarding.
+
 

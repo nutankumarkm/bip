@@ -8,15 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import os
 import secrets
 import time
-from collections.abc import Callable
 from typing import Any
 
 import pyotp
-from fastapi import Cookie, Form, HTTPException, Request, Response, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import HTTPException, Request, status
 
 # ---------------------------------------------------------------------------
 # In-memory staff admin store (Postgres-backed in prod)

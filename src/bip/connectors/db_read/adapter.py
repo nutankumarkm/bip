@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import sqlite3
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel
@@ -61,7 +61,9 @@ class ETimeTrackLiteConnector:
 
             return pyodbc.connect(self.config.connection_string, readonly=True)
         except ImportError:
-            raise Unreachable("pyodbc is not installed. Install pyodbc extra for SQL Server/Access connections.")
+            raise Unreachable(
+                "pyodbc is not installed. Install pyodbc extra for SQL Server/Access connections."
+            ) from None
         except Exception as e:
             raise Unreachable(f"Failed to connect to database: {e}") from e
 

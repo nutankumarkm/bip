@@ -94,9 +94,7 @@ async def test_biotime_fetch_and_checkpoint(
 
 
 @pytest.mark.asyncio
-async def test_biotime_conformance(
-    biotime_connector: BioTimeConnector, biotime_client: httpx.AsyncClient
-) -> None:
+async def test_biotime_conformance(biotime_connector: BioTimeConnector, biotime_client: httpx.AsyncClient) -> None:
     base = datetime.now(UTC) - timedelta(hours=4)
     for i in range(25):
         t_str = (base + timedelta(minutes=i)).strftime("%Y-%m-%d %H:%M:%S")

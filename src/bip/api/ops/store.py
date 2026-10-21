@@ -12,22 +12,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
-
-
-class AuditEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    ts: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    actor: str  # email of ops console user
-    action: str  # e.g. "create_org", "approve_revoke_gateway"
-    resource_type: str
-    resource_id: str
-    detail: dict[str, Any] = Field(default_factory=dict)
-    ip: str = ""
-
+from bip.core.audit import (
+    GENESIS_HASH,
+    AuditEntry,
+    compute_audit_hash,
+    verify_audit_chain,
+)
 
 ApprovalStatus = Literal["pending", "approved", "rejected"]
 
@@ -79,16 +69,38 @@ def log_audit(
     detail: dict[str, Any] | None = None,
     ip: str = "",
 ) -> AuditEntry:
-    entry = AuditEntry(
+    detail_dict = detail or {}
+    seq = len(_AUDIT_LOG)
+    prev_hash = _AUDIT_LOG[-1].entry_hash if _AUDIT_LOG else GENESIS_HASH
+    now = datetime.now(UTC)
+    entry_hash = compute_audit_hash(
+        seq=seq,
+        ts=now,
         actor=actor,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
-        detail=detail or {},
+        detail=detail_dict,
+        prev_hash=prev_hash,
+    )
+    entry = AuditEntry(
+        seq=seq,
+        ts=now,
+        actor=actor,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        detail=detail_dict,
         ip=ip,
+        prev_hash=prev_hash,
+        entry_hash=entry_hash,
     )
     _AUDIT_LOG.append(entry)
     return entry
+
+
+def verify_current_audit_log() -> tuple[bool, str | None, int | None]:
+    return verify_audit_chain(_AUDIT_LOG)
 
 
 def list_audit(
@@ -160,15 +172,17 @@ def clear_ops_state() -> None:
     _AUDIT_LOG.clear()
     _APPROVALS.clear()
     _PARTNERS.clear()
-    _PARTNERS.update({
-        "learnx": {
-            "id": "learnx",
-            "name": "LearnX Education",
-            "created_at": datetime(2025, 1, 1, tzinfo=UTC),
-        },
-        "saptta": {
-            "id": "saptta",
-            "name": "Saptta HR",
-            "created_at": datetime(2025, 1, 1, tzinfo=UTC),
-        },
-    })
+    _PARTNERS.update(
+        {
+            "learnx": {
+                "id": "learnx",
+                "name": "LearnX Education",
+                "created_at": datetime(2025, 1, 1, tzinfo=UTC),
+            },
+            "saptta": {
+                "id": "saptta",
+                "name": "Saptta HR",
+                "created_at": datetime(2025, 1, 1, tzinfo=UTC),
+            },
+        }
+    )

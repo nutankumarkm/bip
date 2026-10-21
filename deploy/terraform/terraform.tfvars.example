@@ -1,0 +1,9 @@
+aws_region        = "ap-south-1"
+environment       = "prod"
+vpc_cidr          = "10.0.0.0/16"
+db_name           = "bip_prod"
+db_username       = "bip_admin"
+db_password       = "ReplaceWithStrongSecretP@ssw0rd!"
+db_instance_class = "db.r6g.large"
+app_image         = "123456789012.dkr.ecr.ap-south-1.amazonaws.com/bip:latest"
+retention_days    = 730

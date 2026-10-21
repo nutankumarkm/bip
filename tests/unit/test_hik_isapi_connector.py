@@ -97,9 +97,7 @@ async def test_hik_isapi_fetch_and_checkpoint(
 
 
 @pytest.mark.asyncio
-async def test_hik_isapi_conformance(
-    hik_connector: HikvisionISAPIConnector, async_client: httpx.AsyncClient
-) -> None:
+async def test_hik_isapi_conformance(hik_connector: HikvisionISAPIConnector, async_client: httpx.AsyncClient) -> None:
     # Seed events for conformance tests
     base = datetime.now(UTC) - timedelta(hours=3)
     for i in range(30):

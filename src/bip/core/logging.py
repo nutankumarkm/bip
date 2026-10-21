@@ -23,10 +23,39 @@ _SENSITIVE_KEYS = frozenset(
         "secret_hash",
         "credential_ciphertext",
         "private_key",
+        "authorization",
+        "cookie",
+        "credential",
+        "credentials",
+        "api_key",
+        "access_token",
+        "refresh_token",
+        "client_secret",
+        "biometric_data",
+        "fingerprint",
+        "face_template",
     }
 )
 
 _PIN_PATTERN = re.compile(r"\b\d{4,8}\b")
+
+
+def _redact_value(val: Any) -> Any:
+    if isinstance(val, dict):
+        res: dict[str, Any] = {}
+        for k, v in val.items():
+            if k.lower() in _SENSITIVE_KEYS:
+                res[k] = REDACTED
+            elif k == "pin" and isinstance(v, str) and len(v) > 2:
+                res[k] = v[:2] + "***"
+            elif k == "name" and isinstance(v, str):
+                res[k] = REDACTED
+            else:
+                res[k] = _redact_value(v)
+        return res
+    if isinstance(val, list):
+        return [_redact_value(item) for item in val]
+    return val
 
 
 def _redact_processor(logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
@@ -37,6 +66,8 @@ def _redact_processor(logger: Any, method_name: str, event_dict: dict[str, Any])
             event_dict[key] = value[:2] + "***"
         elif key == "name" and isinstance(value, str):
             event_dict[key] = REDACTED
+        elif isinstance(value, (dict, list)):
+            event_dict[key] = _redact_value(value)
     return event_dict
 
 

@@ -93,8 +93,12 @@ class FileImporter:
 
         header = rows[0]
         mapping = mapping or {}
-        pin_col = mapping.get("pin") or find_column(header, ("pin", "user_id", "userid", "emp_code", "employee_id", "user id", "employee no"))
-        time_col = mapping.get("timestamp") or find_column(header, ("timestamp", "time", "date", "datetime", "date_time", "date time", "punch_time", "log_date"))
+        pin_col = mapping.get("pin") or find_column(
+            header, ("pin", "user_id", "userid", "emp_code", "employee_id", "user id", "employee no")
+        )
+        time_col = mapping.get("timestamp") or find_column(
+            header, ("timestamp", "time", "date", "datetime", "date_time", "date time", "punch_time", "log_date")
+        )
         mode_col = mapping.get("verify_mode") or find_column(header, ("verify_mode", "verify", "mode", "status"))
 
         if not pin_col or not time_col:
@@ -159,8 +163,12 @@ class FileImporter:
 
         header = [str(c or "").strip() for c in rows[0]]
         mapping = mapping or {}
-        pin_col = mapping.get("pin") or find_column(header, ("pin", "user_id", "userid", "emp_code", "employee_id", "user id", "employee no"))
-        time_col = mapping.get("timestamp") or find_column(header, ("timestamp", "time", "date", "datetime", "date_time", "date time", "punch_time", "log_date"))
+        pin_col = mapping.get("pin") or find_column(
+            header, ("pin", "user_id", "userid", "emp_code", "employee_id", "user id", "employee no")
+        )
+        time_col = mapping.get("timestamp") or find_column(
+            header, ("timestamp", "time", "date", "datetime", "date_time", "date time", "punch_time", "log_date")
+        )
         mode_col = mapping.get("verify_mode") or find_column(header, ("verify_mode", "verify", "mode", "status"))
 
         if not pin_col or not time_col:
@@ -189,10 +197,7 @@ class FileImporter:
                 pin = str(pin_val).strip()
 
                 ts_val = row[time_idx]
-                if isinstance(ts_val, datetime):
-                    dt = ts_val
-                else:
-                    dt = parse_timestamp(str(ts_val))
+                dt = ts_val if isinstance(ts_val, datetime) else parse_timestamp(str(ts_val))
 
                 v_mode: VerifyMode = "other"
                 if mode_idx is not None and len(row) > mode_idx and row[mode_idx] is not None:
@@ -224,9 +229,7 @@ class FileImporter:
             # e.g.: "1001 2026-10-21 08:30:00 1 1"
             if len(parts) < 3:
                 report.rows_failed += 1
-                report.errors.append(
-                    ImportErrorDetail(row=row_idx, error="Line has fewer than 3 tokens", raw=line)
-                )
+                report.errors.append(ImportErrorDetail(row=row_idx, error="Line has fewer than 3 tokens", raw=line))
                 continue
 
             try:

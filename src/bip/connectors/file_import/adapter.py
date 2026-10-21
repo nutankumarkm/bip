@@ -33,7 +33,9 @@ class FileImportConnector:
         Capability.DEVICE_INFO,
     }
 
-    def __init__(self, file_path: Path | str | None = None, content: str | bytes | None = None, format: str = "csv") -> None:
+    def __init__(
+        self, file_path: Path | str | None = None, content: str | bytes | None = None, format: str = "csv"
+    ) -> None:
         self.file_path = Path(file_path) if file_path else None
         self.content = content
         self.format = format.lower()

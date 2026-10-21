@@ -26,23 +26,23 @@ def create_hik_isapi_mock_app(serial: str = "HIK-ISAPI-998877", model: str = "DS
     @app.get("/ISAPI/System/deviceInfo")
     async def get_device_info() -> dict[str, Any]:
         return {
-          "DeviceInfo": {
-            "deviceName": "Access Controller",
-            "deviceID": serial,
-            "model": model,
-            "serialNumber": serial,
-            "firmwareVersion": "V3.2.0 build 210816",
-          }
+            "DeviceInfo": {
+                "deviceName": "Access Controller",
+                "deviceID": serial,
+                "model": model,
+                "serialNumber": serial,
+                "firmwareVersion": "V3.2.0 build 210816",
+            }
         }
 
     @app.get("/ISAPI/System/time")
     async def get_time() -> dict[str, Any]:
         return {
-          "Time": {
-            "timeMode": "manual",
-            "localTime": mock_time["time"],
-            "timeZone": "CST-8:00:00",
-          }
+            "Time": {
+                "timeMode": "manual",
+                "localTime": mock_time["time"],
+                "timeZone": "CST-8:00:00",
+            }
         }
 
     @app.put("/ISAPI/System/time")
@@ -71,13 +71,13 @@ def create_hik_isapi_mock_app(serial: str = "HIK-ISAPI-998877", model: str = "DS
         response_status = "OK" if paged else "NO MATCH"
 
         return {
-          "AcsEvent": {
-            "searchID": cond.get("searchID", "1"),
-            "responseStatusStrg": response_status,
-            "numOfMatches": len(paged),
-            "totalMatches": len(matched),
-            "InfoList": paged,
-          }
+            "AcsEvent": {
+                "searchID": cond.get("searchID", "1"),
+                "responseStatusStrg": response_status,
+                "numOfMatches": len(paged),
+                "totalMatches": len(matched),
+                "InfoList": paged,
+            }
         }
 
     @app.post("/ISAPI/AccessControl/UserInfo/Record")
@@ -94,12 +94,12 @@ def create_hik_isapi_mock_app(serial: str = "HIK-ISAPI-998877", model: str = "DS
     async def search_users(body: dict[str, Any] | None = None) -> dict[str, Any]:
         user_list = list(users.values())
         return {
-          "UserInfoSearch": {
-            "responseStatusStrg": "OK",
-            "numOfMatches": len(user_list),
-            "totalMatches": len(user_list),
-            "UserInfo": user_list,
-          }
+            "UserInfoSearch": {
+                "responseStatusStrg": "OK",
+                "numOfMatches": len(user_list),
+                "totalMatches": len(user_list),
+                "UserInfo": user_list,
+            }
         }
 
     @app.put("/ISAPI/AccessControl/UserInfo/Delete")

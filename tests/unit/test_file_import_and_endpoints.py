@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from bip.api.app import app
 from bip.api.auth import clear_orgs, create_access_token, register_org
-from bip.api.routes.v1 import _imports, _punches, _vendor_connections, reset_stores
+from bip.api.routes.v1 import _punches, reset_stores
 from bip.connectors.file_import.adapter import FileImportConnector
 from bip.connectors.file_import.importer import FileImporter
 from bip.sdk.conformance import run_conformance
