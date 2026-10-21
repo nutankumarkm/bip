@@ -9,7 +9,7 @@
 
 ## 1. Purpose & Scope
 
-This policy outlines the principles, technical safeguards, and operational rules governing the collection, transmission, processing, and retention of biometric-adjacent identifiers across the Biometric Integration Platform (BIP). This policy applies to all organizations, educational institutions, partner software integrations (e.g. LearnX, Saptta), and internal engineering teams.
+This policy outlines the principles, technical safeguards, and operational rules governing the collection, transmission, processing, and retention of biometric-adjacent identifiers across the Biometric Integration Platform (BIP). This policy applies to all organizations, educational institutions, partner software integrations (e.g. LearnX), and internal engineering teams.
 
 ---
 

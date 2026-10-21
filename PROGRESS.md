@@ -107,7 +107,7 @@
   - `docs/runbooks/gateway-troubleshooting.md`: Outbox diagnostics, clock-skew triage, NTP synchronization, re-pairing workflows.
   - `docs/runbooks/database-maintenance.md`: Partition creation, partition detachment/dropping, RLS policy verification.
   - `docs/runbooks/certificate-rotation.md`: Gateway Ed25519 keypair rotation with dual-key grace periods, webhook HMAC secret rollover.
-- **Developer Integration Guide (`docs/INTEGRATION.md`):** Comprehensive guide for LearnX and Saptta engineering teams (OAuth 2.0 auth, user provisioning, webhook HMAC verification in Python/Node.js, cursor polling, local feed API).
+- **Developer Integration Guide (`docs/INTEGRATION.md`):** Comprehensive guide for LearnX and consumer engineering teams (OAuth 2.0 auth, user provisioning, webhook HMAC verification in Python/Node.js, cursor polling, local feed API).
 - **OpenAPI 3.1 Spec Export (`docs/openapi.json`):** Full 46-endpoint OpenAPI specification exported directly from FastAPI.
 - **Root Documentation (`README.md`):** Complete architecture diagram (Mermaid), quickstart, test execution, Ops console guide, and documentation index.
 **Evidence:** 204 unit tests pass across all suites; `ruff check` passes with 0 errors; `ruff format --check` passes with 105 files formatted; 2,000-device load test succeeds with p95 = 3.05ms (< 200ms) and ingest lag = 0.003s (< 60s); OpenAPI export generated with 46 routes.
@@ -119,7 +119,7 @@
 - **Biometric Machine Onboarding (`/ops/devices`):** Web form to register physical terminals (ZKTeco ADMS, Hikvision ISAPI, ZKBioTime, Matrix COSEC, TCP LAN standalone). Automatically whitelists device in `EdgeStore` and immediately displays hardware-specific setup instructions showing server address, port 8001, and step-by-step keypad/web instructions.
 - **Organisation & School Management (`/ops/orgs`):** Web form to create institutions with Partner assignment, timezone selector, and retention days configuration.
 - **Campus Gate / Site Management (`/ops/sites`):** Web form to create physical installation sites linked to organisations.
-- **Software Integrations & Live Webhook Tester (`/ops/integrations`):** Connect consumer software (LearnX SIS, Saptta HRMS, Custom ERP). Generates HMAC-SHA256 signing secret. Includes live '⚡ Test' punch simulator that posts an authenticated punch payload and displays response status code and latency in milliseconds.
+- **Software Integrations & Live Webhook Tester (`/ops/integrations`):** Connect consumer software (LearnX SIS, Custom ERP / HRMS). Generates HMAC-SHA256 signing secret. Includes live '⚡ Test' punch simulator that posts an authenticated punch payload and displays response status code and latency in milliseconds.
 - **Attendance Spreadsheet Importer (`/ops/import`):** Upload CSV, Excel (.xlsx), or ZKTeco USB `attlog.dat` files with row-level validation, live punch ingestion into memory, and quarantine error breakdown.
 - **1-Click Demo Login (`/ops/quick-login`):** Instant single-click authentication for non-technical customer evaluation.
 **Evidence:** 209 unit tests pass (5 new for self-serve UI in `test_ops_console.py`); all routes smoke-tested and verified against live background server on port 8000; `ruff check` and `ruff format` 100% clean.

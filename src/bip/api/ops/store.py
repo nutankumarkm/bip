@@ -48,11 +48,6 @@ _PARTNERS: dict[str, dict[str, Any]] = {
         "name": "LearnX Education",
         "created_at": datetime(2025, 1, 1, tzinfo=UTC),
     },
-    "saptta": {
-        "id": "saptta",
-        "name": "Saptta HR",
-        "created_at": datetime(2025, 1, 1, tzinfo=UTC),
-    },
 }
 
 
@@ -177,11 +172,6 @@ def clear_ops_state() -> None:
             "learnx": {
                 "id": "learnx",
                 "name": "LearnX Education",
-                "created_at": datetime(2025, 1, 1, tzinfo=UTC),
-            },
-            "saptta": {
-                "id": "saptta",
-                "name": "Saptta HR",
                 "created_at": datetime(2025, 1, 1, tzinfo=UTC),
             },
         }

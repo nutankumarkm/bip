@@ -43,7 +43,7 @@ BIP queues a `rotate_key` command to the gateway:
 
 ## 3. Webhook HMAC Secret Rollover
 
-When a consumer (e.g., LearnX or Saptta) needs to rotate their webhook signing secret:
+When a consumer (e.g., LearnX or a partner ERP) needs to rotate their webhook signing secret:
 
 1. **Consumer Requests Secret Update:**
    ```bash

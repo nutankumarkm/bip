@@ -46,7 +46,7 @@ Under GDPR Article 9(1) and DPDP Act 2023 Section 3, biometric data processed fo
  [ Tenant-Partitioned PostgreSQL ] <--- Row-Level Security (RLS) Enforced
                v
  [ Consumer Webhook / REST API ]
-  (LearnX SIS / Saptta HR System)
+  (LearnX SIS / Consumer ERP System)
 ```
 
 ---

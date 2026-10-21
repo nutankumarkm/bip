@@ -1,6 +1,6 @@
 # Biometric Integration Platform (BIP)
 
-A high-throughput, multi-tenant biometric middleware connecting heterogeneous biometric attendance hardware fleets (ZKTeco ADMS, Hikvision ISAPI, Matrix COSEC, SQL databases, CSV/Excel imports) to consumer applications (LearnX, Saptta HRMS, and enterprise SIS platforms).
+A high-throughput, multi-tenant biometric middleware connecting heterogeneous biometric attendance hardware fleets (ZKTeco ADMS, Hikvision ISAPI, Matrix COSEC, SQL databases, CSV/Excel imports) to consumer applications (LearnX and enterprise SIS/ERP platforms).
 
 ```mermaid
 flowchart TD
@@ -26,7 +26,7 @@ flowchart TD
 
     subgraph Consumers ["Consumer Applications"]
         LearnX["LearnX (School ERP / SIS)"]
-        Saptta["Saptta HRMS (SMB Payroll)"]
+        EnterpriseERP["Enterprise ERP / HRMS"]
         Webhooks["Real-Time Signed Webhooks\n(HMAC-SHA256)"]
     end
 
@@ -43,7 +43,7 @@ flowchart TD
     Ops --> DB
 
     API -->|Signed Webhook| Webhooks --> LearnX
-    API -->|Signed Webhook| Webhooks --> Saptta
+    API -->|Signed Webhook| Webhooks --> EnterpriseERP
     Gateway -->|Subnet Local Feed| LearnX
 ```
 

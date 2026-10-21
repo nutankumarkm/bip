@@ -399,7 +399,7 @@ def test_ops_integrations_and_test_punch() -> None:
     resp = client.get("/ops/integrations", cookies={SESSION_COOKIE: tok})
     assert resp.status_code == 200
     assert "LearnX Platform" in resp.text
-    assert "Saptta HRMS" in resp.text
+    assert "Enterprise HRMS" in resp.text
 
     csrf = _SESSIONS[tok].get("csrf", "test")
 

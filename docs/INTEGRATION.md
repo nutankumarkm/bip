@@ -1,13 +1,13 @@
 # Biometric Integration Platform (BIP) Developer Integration Guide
 
-**Audience:** Engineering teams at LearnX (SIS / Education ERP) and Saptta (HRMS / Payroll).  
+**Audience:** Engineering teams at LearnX (SIS / Education ERP) and other consumer application integrators.  
 **Base URL:** `https://api.bip.example.com` (Production) / `http://localhost:8000` (Local Sandbox)  
 
 ---
 
 ## 1. Overview
 
-BIP is the unified biometric middleware connecting your cloud application (LearnX / Saptta) to heterogeneous biometric attendance hardware fleets (ZKTeco ADMS, Hikvision ISAPI, Matrix COSEC, SQL databases, CSV/Excel imports).
+BIP is the unified biometric middleware connecting your cloud application to heterogeneous biometric attendance hardware fleets (ZKTeco ADMS, Hikvision ISAPI, Matrix COSEC, SQL databases, CSV/Excel imports).
 
 ### Core Capabilities
 - **Real-Time Punch Delivery:** Webhooks signed with HMAC-SHA256 or cursor-based incremental polling.
@@ -49,7 +49,7 @@ Authorization: Bearer eyJhbGciOi...
 
 ## 3. Provisioning People & Biometric Terminals
 
-When a student enrolls in LearnX or an employee is hired in Saptta, sync them to BIP. BIP automatically allocates a unique PIN from the organization's configured PIN range and pushes `set_user` commands to all terminals at the person's assigned sites.
+When a student enrolls in LearnX or an employee is hired in your system, sync them to BIP. BIP automatically allocates a unique PIN from the organization's configured PIN range and pushes `set_user` commands to all terminals at the person's assigned sites.
 
 ### Upsert Person
 ```bash

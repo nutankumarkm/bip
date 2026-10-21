@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-BIP serves multiple partners (LearnX, Saptta HR, future apps), each managing multiple organizations (schools, companies), each with multiple sites and devices.
+BIP serves multiple partners (LearnX, enterprise ERPs, and future apps), each managing multiple organizations (schools, companies), each with multiple sites and devices.
 
 ## Decision
 Tenancy: partner -> organization (school, college, company) -> site -> device. People carry a `person_type` (student, staff, employee) and belong to sites.
