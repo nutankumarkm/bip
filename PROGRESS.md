@@ -15,7 +15,11 @@
 **Next:** M2 — SDK
 
 ## M2 — SDK
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** Capability enum (11 capabilities), Connector and PushConnector protocols, PunchEvent/RawPunch/DevicePerson/CommandResult/ProbeResult/HealthReport models, dedupe_key computation (SHA-256), error taxonomy (6 error types with problem_type mapping), DeviceCommand/ParsedUpload, conformance harness
+**Evidence:** 36 unit tests pass (20 new SDK tests); lint and format clean
+**Open issues:** None
+**Next:** M3 — Push ingestion (Edge, raw inbox, ingest worker, ADMS emulator)
 
 ## M3 — Push ingestion
 **Status:** NOT STARTED
