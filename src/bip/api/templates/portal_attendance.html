@@ -1,0 +1,96 @@
+{% extends "portal_base.html" %}
+{% block title %}Attendance Feed — {{ org.name }}{% endblock %}
+{% block page_title %}Attendance Feed{% endblock %}
+
+{% block topbar_actions %}
+<form method="get" action="/portal/attendance" style="display:flex; gap:8px;">
+  <select name="verify_mode" class="form-control" style="width:auto; padding:5px 10px;">
+    <option value="" {% if not filters.verify_mode %}selected{% endif %}>All verify modes</option>
+    <option value="fp" {% if filters.verify_mode == 'fp' %}selected{% endif %}>Fingerprint</option>
+    <option value="card" {% if filters.verify_mode == 'card' %}selected{% endif %}>Card</option>
+    <option value="pin" {% if filters.verify_mode == 'pin' %}selected{% endif %}>PIN</option>
+    <option value="face" {% if filters.verify_mode == 'face' %}selected{% endif %}>Face</option>
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.today }}</div>
+    <div class="stat-label">Today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.total }}</div>
+    <div class="stat-label">Total punches</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.unique_pins }}</div>
+    <div class="stat-label">Unique PINs</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.active_devices }}</div>
+    <div class="stat-label">Active devices</div>
+  </div>
+  {% if stats.unmapped > 0 %}
+  <div class="stat-card" style="border-color:rgba(245,158,11,0.4);">
+    <div class="stat-value" style="color:#f59e0b;">{{ stats.unmapped }}</div>
+    <div class="stat-label">Unmapped PINs</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  {% if punches %}
+  <table>
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>PIN</th>
+        <th>Direction</th>
+        <th>Verify</th>
+        <th>Device</th>
+        <th>Work code</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in punches %}
+      <tr>
+        <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;">{{ p.occurred_at[:19].replace('T',' ') if p.occurred_at else '—' }}</td>
+        <td><code style="font-size:12px;">{{ p.device_pin or '—' }}</code></td>
+        <td>
+          {% if p.punch_direction == 'in' %}<span class="badge badge-green">IN</span>
+          {% elif p.punch_direction == 'out' %}<span class="badge badge-yellow">OUT</span>
+          {% else %}<span class="badge badge-gray">{{ p.punch_direction or '—' }}</span>{% endif %}
+        </td>
+        <td>
+          {% if p.verify_mode == 'fp' %}<span class="badge badge-teal">FP</span>
+          {% elif p.verify_mode == 'card' %}<span class="badge badge-teal">Card</span>
+          {% elif p.verify_mode == 'face' %}<span class="badge badge-teal">Face</span>
+          {% elif p.verify_mode == 'pin' %}<span class="badge badge-gray">PIN</span>
+          {% else %}<span class="badge badge-gray">{{ p.verify_mode or '—' }}</span>{% endif %}
+        </td>
+        <td style="font-size:12px; color:var(--text-muted);">
+          {% set dev = devices_by_id.get(p.device_id, {}) %}
+          {{ dev.label or (p.device_id[:10] + '…' if p.device_id else '—') }}
+        </td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ p.work_code or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pagination">
+    {% if offset > 0 %}
+    <a href="/portal/attendance?offset={{ [0, offset - limit]|max }}&limit={{ limit }}{% if filters.verify_mode %}&verify_mode={{ filters.verify_mode }}{% endif %}" class="btn btn-secondary btn-sm">← Prev</a>
+    {% endif %}
+    <span style="color:var(--text-muted);">Showing {{ offset + 1 }}–{{ offset + punches|length }} of {{ stats.total }}</span>
+    {% if offset + limit < stats.total %}
+    <a href="/portal/attendance?offset={{ offset + limit }}&limit={{ limit }}{% if filters.verify_mode %}&verify_mode={{ filters.verify_mode }}{% endif %}" class="btn btn-secondary btn-sm">Next →</a>
+    {% endif %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:13px; padding:32px 0; text-align:center;">No punches found{% if filters.verify_mode %} for the selected filter{% endif %}.</p>
+  {% endif %}
+</div>
+{% endblock %}

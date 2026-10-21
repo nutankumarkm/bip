@@ -1,0 +1,35 @@
+{% extends "portal_base.html" %}
+{% block title %}Sites — {{ org.name }}{% endblock %}
+{% block page_title %}Sites{% endblock %}
+
+{% block content %}
+<div class="card">
+  {% if sites %}
+  <table>
+    <thead>
+      <tr>
+        <th>Site name</th>
+        <th>Address</th>
+        <th>Timezone</th>
+        <th>Devices</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sites %}
+      <tr>
+        <td style="font-weight:500;">{{ s.name or '—' }}</td>
+        <td style="font-size:13px; color:var(--text-muted);">{{ s.address or '—' }}</td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ s.timezone or 'UTC' }}</td>
+        <td>{{ s.device_count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:40px 0; text-align:center;">
+    <p style="color:var(--text-muted); font-size:13px; margin-bottom:8px;">No sites registered to this organisation.</p>
+    <p style="color:var(--text-muted); font-size:12px;">Contact your platform administrator to set up sites.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

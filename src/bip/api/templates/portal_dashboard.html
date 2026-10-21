@@ -1,0 +1,78 @@
+{% extends "portal_base.html" %}
+{% block title %}Dashboard — {{ org.name }}{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.punches_today }}</div>
+    <div class="stat-label">Punches today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.people }}</div>
+    <div class="stat-label">People in roster</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.devices }}</div>
+    <div class="stat-label">Devices</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.sites }}</div>
+    <div class="stat-label">Sites</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.total_punches }}</div>
+    <div class="stat-label">Total punches</div>
+  </div>
+  {% if stats.unmapped_pins > 0 %}
+  <div class="stat-card" style="border-color: rgba(245,158,11,0.4);">
+    <div class="stat-value" style="color: #f59e0b;">{{ stats.unmapped_pins }}</div>
+    <div class="stat-label">Unmapped PINs</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+    <h2 style="font-size:14px; font-weight:600;">Recent Punches</h2>
+    <a href="/portal/attendance" style="font-size:12px;">View all →</a>
+  </div>
+  {% if recent_punches %}
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>PIN</th>
+        <th>Direction</th>
+        <th>Verify</th>
+        <th>Device</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in recent_punches %}
+      <tr>
+        <td style="color:var(--text-muted); font-size:12px;">{{ p.occurred_at[:19].replace('T',' ') if p.occurred_at else '—' }}</td>
+        <td><code style="font-size:12px;">{{ p.device_pin or '—' }}</code></td>
+        <td>
+          {% if p.punch_direction == 'in' %}<span class="badge badge-green">IN</span>
+          {% elif p.punch_direction == 'out' %}<span class="badge badge-yellow">OUT</span>
+          {% else %}<span class="badge badge-gray">{{ p.punch_direction or '—' }}</span>{% endif %}
+        </td>
+        <td><span class="badge badge-gray" style="font-size:10px;">{{ p.verify_mode or '—' }}</span></td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ p.device_id[:8] if p.device_id else '—' }}…</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:13px; padding:20px 0; text-align:center;">No punches yet. Connect a device to start receiving data.</p>
+  {% endif %}
+</div>
+
+{% if stats.unmapped_pins > 0 %}
+<div class="card" style="border-color: rgba(245,158,11,0.3);">
+  <h3 style="font-size:13px; font-weight:600; color:#f59e0b; margin-bottom:8px;">⚠ Unmapped PINs</h3>
+  <p style="font-size:13px; color:var(--text-muted);">{{ stats.unmapped_pins }} device PIN(s) have punched in but are not linked to any person in your roster. <a href="/portal/people">Add people →</a></p>
+</div>
+{% endif %}
+{% endblock %}

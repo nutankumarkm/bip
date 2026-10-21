@@ -1258,6 +1258,57 @@ def _execute_gateway_revoke(gateway_id: str, actor: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Portal user management (provision org-level portal logins)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/portal-users", response_class=HTMLResponse)
+async def portal_users_get(request: Request, success: str = "", error: str = "") -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+
+    from bip.api.portal.auth import list_portal_users
+
+    users = list_portal_users()
+    orgs = _get_org_list()
+    return _render(
+        request,
+        "ops_portal_users.html",
+        _ctx(request, sess, "portal_users", portal_users=users, orgs=orgs, success=success, error=error),
+    )
+
+
+@router.post("/portal-users", response_class=HTMLResponse)
+async def portal_users_post(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    org_id: str = Form(...),
+    display_name: str = Form(""),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/portal-users?error=Invalid+CSRF+token", status_code=303)
+
+    from bip.api.portal.auth import create_portal_user, get_portal_user
+
+    if get_portal_user(email):
+        return RedirectResponse(f"/ops/portal-users?error=User+{email}+already+exists", status_code=303)
+
+    create_portal_user(email, password, org_id, display_name=display_name)
+    log_audit(sess["email"], "create_portal_user", "portal_user", email, {"org_id": org_id})
+    return RedirectResponse(
+        f"/ops/portal-users?success=Portal+user+{email}+created+successfully!", status_code=303
+    )
+
+
+# ---------------------------------------------------------------------------
 # Audit log viewer
 # ---------------------------------------------------------------------------
 

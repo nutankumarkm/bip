@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — BIP Organisation Portal</title>
+  <style>
+    :root {
+      --bg: #0a1512; --surface: #111c18; --surface2: #182420;
+      --border: #1f3028; --accent: #10b981; --danger: #ef4444;
+      --text: #e2e8f0; --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 14px; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 36px 40px; width: 100%; max-width: 380px; }
+    .logo { text-align: center; margin-bottom: 28px; }
+    .logo-bip { font-size: 28px; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
+    .logo-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 24px; text-align: center; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+    input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+    input:focus { border-color: var(--accent); }
+    .btn { width: 100%; padding: 11px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; margin-top: 8px; }
+    .btn:hover { opacity: 0.88; }
+    .alert-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
+    .ops-link { text-align: center; margin-top: 20px; font-size: 12px; color: var(--text-muted); }
+    .ops-link a { color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="login-box">
+  <div class="logo">
+    <div class="logo-bip">BIP</div>
+    <div class="logo-sub">Biometric Integration Platform</div>
+  </div>
+  <h2>Organisation Portal</h2>
+  {% if error %}<div class="alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/portal/login">
+    <div class="form-group">
+      <label for="email">Email address</label>
+      <input type="email" id="email" name="email" value="{{ email or '' }}" required autofocus placeholder="admin@myorg.com" />
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required placeholder="••••••••" />
+    </div>
+    <button type="submit" class="btn">Sign in</button>
+  </form>
+  <div class="ops-link">Platform admin? <a href="/ops/login">Ops console →</a></div>
+</div>
+</body>
+</html>

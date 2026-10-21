@@ -50,6 +50,7 @@
     .badge-yellow { background: rgba(245,158,11,0.15); color: var(--warning); }
     .badge-red { background: rgba(239,68,68,0.15); color: var(--danger); }
     .badge-blue { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .badge-teal { background: rgba(16,185,129,0.15); color: #10b981; }
     .badge-gray { background: rgba(148,163,184,0.15); color: var(--text-muted); }
     .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: background 0.15s, opacity 0.15s; text-decoration: none; }
     .btn:hover { opacity: 0.88; text-decoration: none; }
@@ -89,6 +90,7 @@
       <a href="/ops/sites" {% if active_page == 'sites' %}class="active"{% endif %}>📍 Sites</a>
       <a href="/ops/devices" {% if active_page == 'devices' %}class="active"{% endif %}>🖥️ Devices</a>
       <a href="/ops/people" {% if active_page == 'people' %}class="active"{% endif %}>👥 People &amp; Roster</a>
+      <a href="/ops/portal-users" {% if active_page == 'portal_users' %}class="active"{% endif %}>🔑 Portal Users</a>
       <a href="/ops/attendance" {% if active_page == 'attendance' %}class="active"{% endif %}>📡 Attendance Feed</a>
       <a href="/ops/integrations" {% if active_page == 'integrations' %}class="active"{% endif %}>🔌 Integrations & Webhooks</a>
       <a href="/ops/import" {% if active_page == 'import' %}class="active"{% endif %}>📥 Import Sheet</a>

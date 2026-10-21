@@ -1,0 +1,90 @@
+{% extends "ops_base.html" %}
+{% block title %}Portal Users{% endblock %}
+{% block page_title %}Organisation Portal Users{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('add-user-modal').style.display='flex'">+ Create portal user</button>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px 32px; width:100%; max-width:420px; }
+  .modal h3 { font-size:15px; font-weight:600; margin-bottom:20px; }
+  .modal-close { float:right; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; line-height:1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+    Portal users can sign in at <a href="/portal/login">/portal/login</a> and see only their organisation's data.
+    Create one here to give an org admin direct access.
+  </p>
+  {% if portal_users %}
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Display name</th>
+        <th>Organisation</th>
+        <th>Role</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in portal_users %}
+      <tr>
+        <td style="font-weight:500;">{{ u.email }}</td>
+        <td>{{ u.display_name or '—' }}</td>
+        <td style="font-size:13px; color:var(--text-muted);">
+          {% for o in orgs %}{% if o.id == u.org_id %}{{ o.name }}{% endif %}{% endfor %}
+          <span style="font-size:11px; color:var(--text-muted);">({{ u.org_id[:8] }}…)</span>
+        </td>
+        <td><span class="badge badge-teal">{{ u.role or 'admin' }}</span></td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ u.created_at[:10] if u.created_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:13px; padding:28px 0; text-align:center;">No portal users yet. Create one to let an org admin log in.</p>
+  {% endif %}
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="add-user-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('add-user-modal').style.display='none'">×</button>
+    <h3>Create portal user</h3>
+    <form method="post" action="/ops/portal-users">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      <div class="form-group">
+        <label>Email address *</label>
+        <input class="form-control" type="email" name="email" required placeholder="admin@school.edu" autofocus />
+      </div>
+      <div class="form-group">
+        <label>Password *</label>
+        <input class="form-control" type="password" name="password" required placeholder="Min 8 characters" minlength="8" />
+      </div>
+      <div class="form-group">
+        <label>Organisation *</label>
+        <select class="form-control" name="org_id" required>
+          <option value="">— select organisation —</option>
+          {% for o in orgs %}
+          <option value="{{ o.id }}">{{ o.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Display name (optional)</label>
+        <input class="form-control" type="text" name="display_name" placeholder="e.g. Springfield Admin" />
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('add-user-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create user</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

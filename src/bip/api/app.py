@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from bip.api.ops.router import router as ops_router
+from bip.api.portal.router import router as portal_router
 from bip.api.routes.gateway import (
     consumer_gateway_router,
     gateway_api_router,
@@ -28,6 +29,7 @@ app.include_router(v1_router)
 app.include_router(consumer_gateway_router)
 app.include_router(gateway_api_router)
 app.include_router(ops_router)
+app.include_router(portal_router)
 
 
 @app.get("/health")

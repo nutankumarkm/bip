@@ -1,0 +1,102 @@
+{% extends "portal_base.html" %}
+{% block title %}People & Roster — {{ org.name }}{% endblock %}
+{% block page_title %}People & Roster{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('add-person-modal').style.display='flex'">+ Add person</button>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px 32px; width:100%; max-width:420px; }
+  .modal h3 { font-size:15px; font-weight:600; margin-bottom:20px; }
+  .modal-close { float:right; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; line-height:1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  {% if people %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>PIN</th>
+        <th>Type</th>
+        <th>Card No</th>
+        <th>Ref</th>
+        <th>Punches</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in people %}
+      <tr>
+        <td style="font-weight:500;">{{ p.display_name or '—' }}</td>
+        <td><code style="font-size:12px; color:var(--accent);">{{ p.pin }}</code></td>
+        <td><span class="badge badge-gray" style="text-transform:capitalize;">{{ p.person_type or 'employee' }}</span></td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ p.card_no or '—' }}</td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ p.external_ref or '—' }}</td>
+        <td style="font-size:13px;">{{ p.punch_count }}</td>
+        <td>{% if p.active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-red">Inactive</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--text-muted); font-size:13px; padding:32px 0; text-align:center;">No people added yet. Click "Add person" to start building your roster.</p>
+  {% endif %}
+</div>
+
+{% if unmapped_pins %}
+<div class="card" style="border-color:rgba(245,158,11,0.3);">
+  <h3 style="font-size:13px; font-weight:600; color:#f59e0b; margin-bottom:12px;">⚠ Unmapped device PINs</h3>
+  <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">The following PINs have punched in but are not linked to anyone in your roster:</p>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    {% for pin in unmapped_pins %}
+    <code style="background:var(--surface2); border:1px solid var(--border); padding:3px 10px; border-radius:4px; font-size:12px; color:var(--warning);">{{ pin }}</code>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Add Person Modal -->
+<div class="modal-overlay" id="add-person-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('add-person-modal').style.display='none'">×</button>
+    <h3>Add person</h3>
+    <form method="post" action="/portal/people">
+      <div class="form-group">
+        <label>Full name *</label>
+        <input class="form-control" type="text" name="display_name" required placeholder="Jane Smith" autofocus />
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select class="form-control" name="person_type">
+          <option value="employee">Employee</option>
+          <option value="student">Student</option>
+          <option value="contractor">Contractor</option>
+          <option value="visitor">Visitor</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>PIN (leave blank to auto-assign)</label>
+        <input class="form-control" type="text" name="manual_pin" placeholder="Auto-assigned" />
+      </div>
+      <div class="form-group">
+        <label>Card number</label>
+        <input class="form-control" type="text" name="card_no" placeholder="Optional" />
+      </div>
+      <div class="form-group">
+        <label>External reference (HR ID, roll no…)</label>
+        <input class="form-control" type="text" name="external_ref" placeholder="Optional" />
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('add-person-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add person</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
