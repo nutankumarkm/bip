@@ -36,7 +36,11 @@
 **Next:** M5 — People and commands
 
 ## M5 — People and commands
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** People CRUD (PUT upsert by external_ref with auto PIN allocation, GET, list with active/site filters, DELETE), person identity management (sequential PINs from org's pin_range_start), enrolment tracking endpoints (per-person, per-device), command queue (create with idempotency, list with device/state filters, get), command fan-out (set_user/delete_user commands auto-created when people are upserted/deleted to all site devices), match suggestions (rapidfuzz-based name similarity + PIN matching), reconciliation (expected vs enrolled comparison), extended Python client library
+**Evidence:** 114 unit tests pass (31 new for M5); lint and format clean
+**Open issues:** In-memory stores (Postgres-backed in Docker Compose); match suggestions use simple name-PIN similarity (ADR-013 says matching is consumer's job, BIP just provides suggestions)
+**Next:** M6 — Gateway
 
 ## M6 — Gateway
 **Status:** NOT STARTED

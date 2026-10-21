@@ -77,6 +77,53 @@ class BIPClient:
         )
         resp.raise_for_status()
 
+    def list_people(self, org_id: str, active: bool | None = None, site_id: str | None = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {}
+        if active is not None:
+            params["active"] = str(active).lower()
+        if site_id:
+            params["site_id"] = site_id
+        resp = self._http.get(f"/v1/orgs/{org_id}/people", params=params, headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_person(self, org_id: str, external_ref: str) -> dict[str, Any]:
+        resp = self._http.get(f"/v1/orgs/{org_id}/people/{external_ref}", headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def create_command(
+        self, org_id: str, device_id: str, cmd_type: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {"device_id": device_id, "type": cmd_type}
+        if params:
+            body["params"] = params
+        resp = self._http.post(f"/v1/orgs/{org_id}/commands", json=body, headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def list_commands(
+        self, org_id: str, device_id: str | None = None, state: str | None = None
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {}
+        if device_id:
+            params["device_id"] = device_id
+        if state:
+            params["state"] = state
+        resp = self._http.get(f"/v1/orgs/{org_id}/commands", params=params, headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_match_suggestions(self, org_id: str) -> list[dict[str, Any]]:
+        resp = self._http.get(f"/v1/orgs/{org_id}/match-suggestions", headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
+    def reconcile(self, org_id: str, device_id: str) -> dict[str, Any]:
+        resp = self._http.post(f"/v1/orgs/{org_id}/reconcile", json={"device_id": device_id}, headers=self._headers())
+        resp.raise_for_status()
+        return resp.json()
+
     def close(self) -> None:
         self._http.close()
 
