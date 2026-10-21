@@ -15,6 +15,17 @@
     {% if error %}
       <div class="alert alert-error">{{ error }}</div>
     {% endif %}
+
+    <a href="/ops/quick-login" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-size:14px; font-weight:600; margin-bottom:20px; background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border:none; box-shadow:0 4px 12px rgba(99,102,241,0.3);">
+      ⚡ 1-Click Instant Login (Admin)
+    </a>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <div style="flex:1; height:1px; background:var(--border);"></div>
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">or sign in with password</div>
+      <div style="flex:1; height:1px; background:var(--border);"></div>
+    </div>
+
     <form method="post" action="/ops/login">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
       <div class="form-group">

@@ -215,6 +215,17 @@ async def login_get(request: Request) -> HTMLResponse:
     )
 
 
+@router.get("/quick-login")
+@router.post("/quick-login")
+async def quick_login() -> RedirectResponse:
+    """One-click instant login for demo and local development."""
+    email = "admin@bip.internal"
+    token = create_session(email, pre_totp=False)
+    resp = RedirectResponse(url="/ops/", status_code=303)
+    resp.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=28800)
+    return resp
+
+
 @router.post("/login", response_class=HTMLResponse)
 async def login_post(
     request: Request,
