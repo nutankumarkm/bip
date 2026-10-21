@@ -134,4 +134,13 @@
 - **Ops Console Sidebar updated** with People & Roster and Attendance Feed navigation links.
 **Evidence:** 218 unit tests pass (9 new: 4 for People/Attendance pages in `test_ops_console.py`, 2 extra unauthenticated redirect cases for `/ops/people` and `/ops/attendance`, 2 for webhook delivery engine in `test_webhooks.py`, 1 for simulate-punch redirect check); `ruff check` and `ruff format` clean.
 
+## Organisation Portal (per-org self-serve login)
+**Status:** DONE
+**Built:**
+- **Org Portal (`/portal`):** Teal/emerald themed Jinja2 + HTMX sub-app. Organisation admins sign in at `/portal/login` with email + password scoped to their own org.
+- **Auth (`src/bip/api/portal/auth.py`):** PBKDF2-HMAC-SHA256 (260,000 iterations, 16-byte random salt), per-org session tokens, `clear_portal_state()` for test isolation.
+- **Portal Pages:** Dashboard (stats panel + recent punches), Attendance Feed (paginated, verify-mode filter), People & Roster (modal add-person form, auto-PIN, unmapped PIN warnings), Devices, Sites.
+- **Ops Portal Users (`/ops/portal-users`):** Ops admins provision portal accounts here — create portal user with email, password, and org assignment. Added to ops sidebar as "🔑 Portal Users".
+- **Router registered** in `bip.api.app` alongside existing ops and API routers.
+**Evidence:** 242 unit tests pass (24 new in `tests/unit/test_portal.py`): login/logout flow, 401 on bad credentials, 303 → `/portal/` on success, unauthenticated redirects for all 5 protected pages, all portal pages render, people POST with auto-PIN and manual PIN, ops portal-user creation and subsequent portal login; `ruff check` and `ruff format` clean.
 
