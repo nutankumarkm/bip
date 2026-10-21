@@ -61,44 +61,88 @@
 </div>
 {% endif %}
 
-<div style="display:grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start;">
-  <!-- Connect Form -->
-  <div class="card">
-    <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Connect Consumer Software</h3>
-    <form method="post" action="/ops/integrations/webhooks">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-      
-      <div class="form-group">
-        <label>Integration / Software Name *</label>
-        <input class="form-control" type="text" name="name" required placeholder="e.g. LearnX School Attendance" />
-      </div>
+<div style="display:grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; margin-bottom:24px;">
+  <!-- Left column forms -->
+  <div style="display:flex; flex-direction:column; gap:24px;">
+    <!-- Connect Webhook Form -->
+    <div class="card">
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Connect Consumer Software</h3>
+      <form method="post" action="/ops/integrations/webhooks">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        
+        <div class="form-group">
+          <label>Integration / Software Name *</label>
+          <input class="form-control" type="text" name="name" required placeholder="e.g. LearnX School Attendance" />
+        </div>
 
-      <div class="form-group">
-        <label>Assigned Organisation / School *</label>
-        <select class="form-control" name="org_id" required>
-          {% for o in orgs %}
-            <option value="{{ o.id }}">{{ o.name }} ({{ o.type }})</option>
-          {% else %}
-            <option value="default_org">Default Organisation</option>
-          {% endfor %}
-        </select>
-      </div>
+        <div class="form-group">
+          <label>Assigned Organisation / School *</label>
+          <select class="form-control" name="org_id" required>
+            {% for o in orgs %}
+              <option value="{{ o.id }}">{{ o.name }} ({{ o.type }})</option>
+            {% else %}
+              <option value="default_org">Default Organisation</option>
+            {% endfor %}
+          </select>
+        </div>
 
-      <div class="form-group">
-        <label>Webhook Ingestion Endpoint URL *</label>
-        <input class="form-control" type="url" name="url" required placeholder="https://api.yourdomain.com/bip/punches" />
-        <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:4px;">
-          BIP will send HTTP POST requests with a <code>BIP-Signature</code> header.
-        </small>
-      </div>
+        <div class="form-group">
+          <label>Webhook Ingestion Endpoint URL *</label>
+          <input class="form-control" type="url" name="url" required placeholder="https://api.yourdomain.com/bip/punches" />
+          <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:4px;">
+            BIP will send HTTP POST requests with a <code>BIP-Signature</code> header.
+          </small>
+        </div>
 
-      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
-        Connect Integration
-      </button>
-    </form>
+        <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
+          Connect Integration
+        </button>
+      </form>
+    </div>
+
+    <!-- Simulate Machine Punch Form -->
+    <div class="card" style="border: 1px dashed var(--accent);">
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:12px;">🚀 Simulate Biometric Machine Punch</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
+        Simulate a student or employee scanning on a machine to see it flow instantly through BIP into your connected software!
+      </p>
+      <form method="post" action="/ops/integrations/simulate-punch">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <div class="form-group">
+          <label>Biometric Machine Terminal *</label>
+          <select class="form-control" name="device_id" required>
+            {% for d in devices %}
+              <option value="{{ d.id }}">{{ d.name }} ({{ d.serial }})</option>
+            {% else %}
+              <option value="demo_zk_terminal">Demo ZKTeco Terminal (Main Entrance)</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Student / Employee PIN *</label>
+          <input class="form-control" type="text" name="pin" value="1001" required placeholder="e.g. 1001" />
+        </div>
+
+        <div class="form-group">
+          <label>Biometric Scan Mode</label>
+          <select class="form-control" name="verify_mode">
+            <option value="fingerprint">Fingerprint Scan</option>
+            <option value="face">Face Recognition</option>
+            <option value="card">RFID Card Swipe</option>
+            <option value="palm">Palm Print</option>
+          </select>
+        </div>
+
+        <button class="btn btn-secondary" style="width:100%; justify-content:center; padding:9px; border-color:var(--accent); color:var(--accent);" type="submit">
+          Trigger Live Machine Punch ➔
+        </button>
+      </form>
+    </div>
   </div>
 
-  <!-- Active Integrations & Live Test -->
+  <!-- Active Integrations Table -->
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
       <h3 style="margin:0; font-size:15px;">Active Software Endpoints ({{ webhooks|length }})</h3>
@@ -141,11 +185,58 @@
     </table>
 
     <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
-      <h4 style="font-size:13px; margin:0 0 8px; color:var(--text);">How BIP Ingestion Works</h4>
+      <h4 style="font-size:13px; margin:0 0 8px; color:var(--text);">How Real-Time Delivery Works</h4>
       <p style="font-size:12px; color:var(--text-muted); line-height:1.5; margin:0;">
-        Whenever a student or employee touches the physical biometric machine, BIP Edge processes the fingerprint/face within <strong>&lt; 5 milliseconds</strong> and immediately pushes a standard JSON payload with an HMAC-SHA256 signature to your configured endpoint above.
+        Whenever a student or employee touches any physical biometric machine (or data is pulled via gateway/poller), BIP Edge processes the scan within <strong>&lt; 5 milliseconds</strong> and immediately pushes a standard <code>punch.created</code> JSON payload with an HMAC-SHA256 signature to your software endpoint above.
       </p>
     </div>
   </div>
+</div>
+
+<!-- Live Punch Delivery Log -->
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <h3 style="margin:0; font-size:15px;">📡 Live Deliveries to Software (Audit Log)</h3>
+    <span class="badge badge-blue">{{ deliveries|length }} recent</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Target Software</th>
+        <th>Punch PIN</th>
+        <th>Endpoint URL</th>
+        <th>Status</th>
+        <th>Latency</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in deliveries %}
+      <tr>
+        <td style="color:var(--text-muted); font-size:12px;">{{ d.timestamp[11:19] }}</td>
+        <td><strong>{{ d.webhook_name }}</strong></td>
+        <td><code>{{ d.punch_pin }}</code></td>
+        <td><code style="font-size:11px;">{{ d.url }}</code></td>
+        <td>
+          {% if d.success %}
+            <span class="badge badge-green">HTTP {{ d.status_code }} OK</span>
+          {% else %}
+            <span class="badge badge-yellow" title="{{ d.error }}">
+              {% if d.status_code > 0 %}HTTP {{ d.status_code }}{% else %}Notice{% endif %}
+            </span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px; color:var(--text-muted);">{{ d.latency_ms }} ms</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" style="color:var(--text-muted); text-align:center; padding:28px;">
+          No live deliveries logged yet. Trigger a simulated punch above or connect a biometric machine to see real-time dispatches appear here!
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}

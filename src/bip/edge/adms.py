@@ -74,6 +74,34 @@ async def upload(
         body=cleaned_body,
     )
 
+    # Ingest attendance punches into the central pipeline
+    if table.upper() in ("ATTLOG", ""):
+        try:
+            from bip.api.routes.v1 import _devices, add_test_punch
+            from bip.connectors.zk_adms.parser import parse_attlog
+
+            parsed_punches = parse_attlog(cleaned_body)
+            dev_info = next(
+                (d for d in _devices.values() if d.get("serial") == SN or d.get("id") == device.get("id")),
+                None,
+            )
+            org_id = dev_info.get("org_id", "org_default") if dev_info else device.get("org_id", "org_default")
+            site_id = dev_info.get("site_id", "site_default") if dev_info else device.get("site_id", "site_default")
+            dev_id = dev_info.get("id", device.get("id", SN)) if dev_info else device.get("id", SN)
+
+            for p in parsed_punches:
+                add_test_punch(
+                    org_id=org_id,
+                    site_id=site_id,
+                    device_id=dev_id,
+                    pin=p.device_pin,
+                    occurred_at=p.device_local_time,
+                    verify_mode=p.verify_mode,
+                    source="adms",
+                )
+        except Exception as exc:
+            log.warning("adms_ingest_error", serial=SN, error=str(exc))
+
     if Stamp:
         await _store.set_checkpoint(SN, "attlog", Stamp)
 

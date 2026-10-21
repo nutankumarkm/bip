@@ -137,6 +137,8 @@ def _full_session(email: str = "admin@test.com") -> str:
         "/ops/orgs",
         "/ops/sites",
         "/ops/devices",
+        "/ops/people",
+        "/ops/attendance",
         "/ops/gateways",
         "/ops/approvals",
         "/ops/audit",
@@ -459,3 +461,99 @@ def test_ops_import_csv_post() -> None:
     assert resp.status_code == 200
     assert "Processed &#39;attendance.csv&#39;" in resp.text or "attendance.csv" in resp.text
     assert "2 valid punches ingested" in resp.text
+
+
+def test_ops_simulate_punch_post() -> None:
+    tok = _full_session("admin@test.com")
+    from bip.api.ops.auth import _SESSIONS
+    from bip.api.routes.v1 import _devices, _punches
+
+    # Add dummy device
+    _devices["dev_sim_1"] = {
+        "id": "dev_sim_1",
+        "name": "Gate 1 Simulator",
+        "serial": "SIM999",
+        "org_id": "org_sim",
+        "site_id": "site_sim",
+    }
+
+    # Fetch page for CSRF
+    resp = client.get("/ops/integrations", cookies={SESSION_COOKIE: tok})
+    csrf = _SESSIONS[tok].get("csrf", "test")
+
+    resp = client.post(
+        "/ops/integrations/simulate-punch",
+        data={
+            "device_id": "dev_sim_1",
+            "pin": "2044",
+            "verify_mode": "face",
+            "csrf_token": csrf,
+        },
+        cookies={SESSION_COOKIE: tok},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "2044" in resp.headers["location"]
+    # Verify punch is in punch feed
+    assert any(p["device_pin"] == "2044" for p in _punches)
+
+
+# ---------------------------------------------------------------------------
+# People & Roster page
+# ---------------------------------------------------------------------------
+
+
+def test_people_page_renders() -> None:
+    tok = _full_session()
+    resp = client.get("/ops/people", cookies={SESSION_COOKIE: tok})
+    assert resp.status_code == 200
+    assert "People" in resp.text
+    assert "Roster" in resp.text
+
+
+def test_people_post_creates_person() -> None:
+    from bip.api.routes.v1 import _people
+
+    tok = _full_session("admin@test.com")
+    resp = client.post(
+        "/ops/people",
+        data={
+            "display_name": "Priya Sharma",
+            "person_type": "student",
+            "org_id": "org_test",
+            "csrf_token": "test",
+        },
+        cookies={SESSION_COOKIE: tok},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "Priya Sharma" in resp.text or any(p["display_name"] == "Priya Sharma" for p in _people.values())
+    found = any(p["display_name"] == "Priya Sharma" for p in _people.values())
+    assert found
+
+
+# ---------------------------------------------------------------------------
+# Attendance Feed page
+# ---------------------------------------------------------------------------
+
+
+def test_attendance_page_renders() -> None:
+    tok = _full_session()
+    resp = client.get("/ops/attendance", cookies={SESSION_COOKIE: tok})
+    assert resp.status_code == 200
+    assert "Attendance" in resp.text
+
+
+def test_attendance_page_shows_punches() -> None:
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import add_test_punch
+
+    add_test_punch("org_a", "site_a", "dev_a", "3001", datetime.now(UTC), verify_mode="fingerprint")
+    add_test_punch("org_a", "site_a", "dev_a", "3002", datetime.now(UTC), verify_mode="face")
+
+    tok = _full_session()
+    resp = client.get("/ops/attendance", cookies={SESSION_COOKIE: tok})
+    assert resp.status_code == 200
+    assert "3001" in resp.text or "3002" in resp.text
+

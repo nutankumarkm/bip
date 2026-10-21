@@ -611,10 +611,13 @@ async def integrations_get(request: Request, success: str = "", error: str = "")
     if not sess or sess.get("pre_totp"):
         return RedirectResponse("/ops/login", status_code=303)
 
+    from bip.api.delivery import get_delivery_logs
     from bip.api.routes.v1 import _webhook_secrets, _webhooks
 
     webhooks = list(_webhooks.values())
     orgs = _get_org_list()
+    devices = _get_device_list()
+    deliveries = get_delivery_logs()
     return _render(
         request,
         "ops_integrations.html",
@@ -625,6 +628,8 @@ async def integrations_get(request: Request, success: str = "", error: str = "")
             webhooks=webhooks,
             secrets=_webhook_secrets,
             orgs=orgs,
+            devices=devices,
+            deliveries=deliveries,
             success=success,
             error=error,
         ),
@@ -690,6 +695,7 @@ async def integrations_test_punch(
 
     import httpx
 
+    from bip.api.delivery import get_delivery_logs
     from bip.api.routes.v1 import _webhook_secrets, _webhooks
     from bip.api.webhooks import sign_webhook
 
@@ -739,6 +745,8 @@ async def integrations_test_punch(
 
     webhooks = list(_webhooks.values())
     orgs = _get_org_list()
+    devices = _get_device_list()
+    deliveries = get_delivery_logs()
     return _render(
         request,
         "ops_integrations.html",
@@ -749,9 +757,59 @@ async def integrations_test_punch(
             webhooks=webhooks,
             secrets=_webhook_secrets,
             orgs=orgs,
+            devices=devices,
+            deliveries=deliveries,
             test_result=test_result,
             tested_webhook=wh,
         ),
+    )
+
+
+@router.post("/integrations/simulate-punch", response_class=HTMLResponse)
+async def integrations_simulate_punch(
+    request: Request,
+    device_id: str = Form(...),
+    pin: str = Form("1001"),
+    verify_mode: str = Form("fingerprint"),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/integrations?error=Invalid+CSRF+token", status_code=303)
+
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _devices, add_test_punch
+
+    dev = _devices.get(device_id)
+    org_id = dev.get("org_id", "org_default") if dev else "org_default"
+    site_id = dev.get("site_id", "site_default") if dev else "site_default"
+    dev_name = dev.get("name", device_id) if dev else device_id
+
+    add_test_punch(
+        org_id=org_id,
+        site_id=site_id,
+        device_id=device_id,
+        pin=pin.strip(),
+        occurred_at=datetime.now(UTC),
+        verify_mode=verify_mode,
+        source="simulation",
+    )
+
+    log_audit(
+        sess["email"],
+        "simulate_punch",
+        "device",
+        device_id,
+        {"pin": pin, "verify_mode": verify_mode, "device_name": dev_name},
+    )
+
+    return RedirectResponse(
+        f"/ops/integrations?success=Simulated+{verify_mode}+punch+for+PIN+{pin}+triggered+on+'{dev_name}'!+Check+delivery+logs+below.",
+        status_code=303,
     )
 
 
@@ -865,6 +923,220 @@ async def import_post(
             ),
             status_code=400,
         )
+
+
+# ---------------------------------------------------------------------------
+# Attendance Feed
+# ---------------------------------------------------------------------------
+
+
+@router.get("/attendance", response_class=HTMLResponse)
+async def attendance_get(
+    request: Request,
+    org_id: str = "",
+    verify_mode: str = "",
+    offset: int = 0,
+    limit: int = 100,
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _devices, _orgs, _people, _punches, _sites
+
+    # Build lookup dicts
+    devices_by_id = {d["id"]: d for d in _devices.values()}
+    orgs_by_id = dict(_orgs)
+    sites_by_id = dict(_sites)
+
+    # Build a pin -> person lookup (per org)
+    people_by_pin: dict[str, Any] = {}
+    for _pid, person in _people.items():
+        pin = str(person.get("pin", ""))
+        if pin:
+            people_by_pin[pin] = person
+
+    # Filter punches
+    filtered = list(reversed(_punches))  # newest first
+    if org_id:
+        filtered = [p for p in filtered if p.get("org_id") == org_id]
+    if verify_mode:
+        filtered = [p for p in filtered if p.get("verify_mode") == verify_mode]
+
+    # Stats
+    today_str = datetime.now(UTC).date().isoformat()
+    today_count = sum(1 for p in _punches if p.get("occurred_at", "")[:10] == today_str)
+    all_pins = {p.get("device_pin") for p in _punches}
+    mapped_pins = set(people_by_pin.keys())
+    unmapped_count = len(all_pins - mapped_pins)
+    active_device_ids = {p.get("device_id") for p in _punches}
+
+    stats = {
+        "total": len(_punches),
+        "today": today_count,
+        "unique_pins": len(all_pins),
+        "active_devices": len(active_device_ids),
+        "unmapped": unmapped_count,
+    }
+
+    paginated = filtered[offset : offset + limit]
+    orgs = _get_org_list()
+    devices = _get_device_list()
+    filters = {"org_id": org_id, "verify_mode": verify_mode}
+
+    return _render(
+        request,
+        "ops_attendance.html",
+        _ctx(
+            request,
+            sess,
+            "attendance",
+            punches=paginated,
+            stats=stats,
+            filters=filters,
+            orgs=orgs,
+            devices=devices,
+            devices_by_id=devices_by_id,
+            orgs_by_id=orgs_by_id,
+            sites_by_id=sites_by_id,
+            people_by_pin=people_by_pin,
+            offset=offset,
+            limit=limit,
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# People & Roster
+# ---------------------------------------------------------------------------
+
+
+def _get_people_list(
+    org_id: str | None = None,
+    person_type: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return enriched people list with punch counts."""
+    try:
+        from bip.api.routes.v1 import _people, _punches
+
+        result = []
+        for _pid, person in _people.items():
+            if org_id and person.get("org_id") != org_id:
+                continue
+            if person_type and person.get("person_type") != person_type:
+                continue
+            pin = str(person.get("pin", ""))
+            punch_count = sum(1 for p in _punches if p.get("device_pin") == pin)
+            result.append({**person, "punch_count": punch_count})
+        return result
+    except Exception:
+        return []
+
+
+@router.get("/people", response_class=HTMLResponse)
+async def people_get(
+    request: Request,
+    org_id: str = "",
+    person_type: str = "",
+    success: str = "",
+    error: str = "",
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+
+    from bip.api.routes.v1 import _people, _punches
+
+    people = _get_people_list(org_id=org_id or None, person_type=person_type or None)
+    orgs = _get_org_list()
+    orgs_by_id = {o["id"]: o for o in orgs}
+
+    # Build unknown PINs list
+    people_pins = {str(p.get("pin", "")) for p in _people.values()}
+    punch_pins = {str(p.get("device_pin", "")) for p in _punches}
+    unmapped_pins = sorted(punch_pins - people_pins)
+
+    filters = {"org_id": org_id, "person_type": person_type}
+    return _render(
+        request,
+        "ops_people.html",
+        _ctx(
+            request,
+            sess,
+            "people",
+            people=people,
+            orgs=orgs,
+            orgs_by_id=orgs_by_id,
+            filters=filters,
+            unmapped_pins=unmapped_pins,
+            success=success,
+            error=error,
+        ),
+    )
+
+
+@router.post("/people", response_class=HTMLResponse)
+async def people_post(
+    request: Request,
+    display_name: str = Form(...),
+    person_type: str = Form("student"),
+    org_id: str = Form(...),
+    external_ref: str = Form(""),
+    card_no: str = Form(""),
+    manual_pin: str = Form(""),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/people?error=Invalid+CSRF+token", status_code=303)
+
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _orgs, _people, _pin_counters
+
+    # Auto-assign PIN or use manual override
+    if manual_pin.strip():
+        pin = manual_pin.strip()
+    else:
+        org = _orgs.get(org_id, {})
+        start = int(org.get("pin_range_start", 10001))
+        current = _pin_counters.get(org_id, start - 1)
+        pin = str(current + 1)
+        _pin_counters[org_id] = current + 1
+
+    person_id = str(uuid.uuid4())
+    person = {
+        "id": person_id,
+        "org_id": org_id,
+        "person_type": person_type,
+        "display_name": display_name.strip(),
+        "pin": pin,
+        "external_ref": external_ref.strip() or None,
+        "card_no": card_no.strip() or None,
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    _people[person_id] = person
+    log_audit(
+        sess["email"],
+        "create_person",
+        "person",
+        person_id,
+        {"name": display_name, "type": person_type, "pin": pin},
+    )
+
+    return RedirectResponse(
+        f"/ops/people?success=Added+'{display_name}'+with+PIN+{pin}+to+roster!",
+        status_code=303,
+    )
 
 
 # ---------------------------------------------------------------------------

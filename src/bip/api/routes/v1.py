@@ -127,6 +127,12 @@ def reset_stores() -> None:
     _pin_counters.clear()
     _vendor_connections.clear()
     _imports.clear()
+    try:
+        from bip.api.delivery import clear_delivery_logs
+
+        clear_delivery_logs()
+    except Exception:
+        pass
 
 
 def add_test_enrolment(person_id: str, device_id: str, **kwargs: Any) -> dict[str, Any]:
@@ -161,6 +167,12 @@ def add_test_punch(org_id: str, site_id: str, device_id: str, pin: str, occurred
         "received_at": datetime.now(UTC).isoformat(),
     }
     _punches.append(punch)
+    try:
+        from bip.api.delivery import trigger_punch_dispatch
+
+        trigger_punch_dispatch(org_id, punch)
+    except Exception:
+        pass
     return _punch_seq
 
 

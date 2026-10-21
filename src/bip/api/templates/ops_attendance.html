@@ -1,0 +1,205 @@
+{% extends "ops_base.html" %}
+{% block title %}Live Attendance Feed — BIP Ops{% endblock %}
+{% block page_title %}📡 Live Attendance Feed{% endblock %}
+{% block topbar_actions %}
+  <form method="get" action="/ops/attendance" style="display:flex; gap:8px; align-items:center;">
+    <select class="form-control" name="org_id" style="width:200px; padding:6px 10px;" onchange="this.form.submit()">
+      <option value="">All Organisations</option>
+      {% for o in orgs %}
+        <option value="{{ o.id }}" {% if filters.org_id == o.id %}selected{% endif %}>{{ o.name }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-control" name="verify_mode" style="width:160px; padding:6px 10px;" onchange="this.form.submit()">
+      <option value="">All Modes</option>
+      <option value="fingerprint" {% if filters.verify_mode == 'fingerprint' %}selected{% endif %}>Fingerprint</option>
+      <option value="face" {% if filters.verify_mode == 'face' %}selected{% endif %}>Face</option>
+      <option value="card" {% if filters.verify_mode == 'card' %}selected{% endif %}>RFID Card</option>
+      <option value="palm" {% if filters.verify_mode == 'palm' %}selected{% endif %}>Palm</option>
+      <option value="simulation" {% if filters.verify_mode == 'simulation' %}selected{% endif %}>Simulation</option>
+    </select>
+    <a href="/ops/attendance" class="btn btn-secondary btn-sm">Reset</a>
+  </form>
+  <form method="post" action="/ops/integrations/simulate-punch" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <input type="hidden" name="device_id" value="{{ devices[0].id if devices else 'demo_device' }}" />
+    <input type="hidden" name="pin" value="1001" />
+    <input type="hidden" name="verify_mode" value="fingerprint" />
+    <button class="btn btn-primary btn-sm" type="submit">⚡ Quick Simulate</button>
+  </form>
+{% endblock %}
+{% block content %}
+
+<!-- Live Stats Row -->
+<div class="stats-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 24px;">
+  <div class="stat-card" style="border-top: 3px solid var(--accent);">
+    <div class="stat-value">{{ stats.total }}</div>
+    <div class="stat-label">Total Punches</div>
+  </div>
+  <div class="stat-card" style="border-top: 3px solid #10b981;">
+    <div class="stat-value">{{ stats.today }}</div>
+    <div class="stat-label">Today</div>
+  </div>
+  <div class="stat-card" style="border-top: 3px solid #6366f1;">
+    <div class="stat-value">{{ stats.unique_pins }}</div>
+    <div class="stat-label">Unique PINs Seen</div>
+  </div>
+  <div class="stat-card" style="border-top: 3px solid #f59e0b;">
+    <div class="stat-value">{{ stats.active_devices }}</div>
+    <div class="stat-label">Active Devices</div>
+  </div>
+  <div class="stat-card" style="border-top: 3px solid #ef4444;">
+    <div class="stat-value">{{ stats.unmapped }}</div>
+    <div class="stat-label">Unknown PINs</div>
+  </div>
+</div>
+
+<!-- Punch Feed Table -->
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <h3 style="margin:0; font-size:15px;">
+      Attendance Records
+      {% if filters.org_id or filters.verify_mode %}
+        <span class="badge badge-yellow" style="margin-left:8px;">Filtered</span>
+      {% endif %}
+    </h3>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span class="badge badge-green">
+        <span id="punch-count">{{ punches|length }}</span> records shown
+      </span>
+      <span class="badge badge-blue">Auto-updates on simulate</span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:50px;">#</th>
+        <th>Time</th>
+        <th>Person</th>
+        <th>PIN</th>
+        <th>Scan Mode</th>
+        <th>Device</th>
+        <th>Site</th>
+        <th>Organisation</th>
+        <th>Source</th>
+      </tr>
+    </thead>
+    <tbody id="punch-tbody">
+      {% for p in punches %}
+      {% set dev = devices_by_id.get(p.device_id, {}) %}
+      {% set org = orgs_by_id.get(p.org_id, {}) %}
+      {% set site = sites_by_id.get(p.site_id, {}) %}
+      {% set person = people_by_pin.get(p.device_pin, {}) %}
+      <tr>
+        <td style="color:var(--text-muted); font-size:11px;">{{ p.seq }}</td>
+        <td style="white-space:nowrap; color:var(--text-muted); font-size:12px;">
+          {{ p.occurred_at[:10] }}<br/>
+          <strong style="color:var(--text);">{{ p.occurred_at[11:19] }}</strong>
+        </td>
+        <td>
+          {% if person %}
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:28px; height:28px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">
+                {{ person.display_name[0].upper() }}
+              </div>
+              <div>
+                <div style="font-weight:500; font-size:13px;">{{ person.display_name }}</div>
+                <div style="font-size:11px; color:var(--text-muted);">{{ person.person_type | capitalize }}</div>
+              </div>
+            </div>
+          {% else %}
+            <span style="color:var(--warning); font-size:12px;">⚠ Unknown PIN</span>
+          {% endif %}
+        </td>
+        <td><code style="font-size:12px;">{{ p.device_pin }}</code></td>
+        <td>
+          {% if p.verify_mode == 'fingerprint' %}
+            <span class="badge badge-blue">🖐 Fingerprint</span>
+          {% elif p.verify_mode == 'face' %}
+            <span class="badge badge-green">👤 Face</span>
+          {% elif p.verify_mode == 'card' %}
+            <span class="badge badge-yellow">💳 RFID Card</span>
+          {% elif p.verify_mode == 'palm' %}
+            <span class="badge badge-blue">✋ Palm</span>
+          {% else %}
+            <span class="badge badge-gray">{{ p.verify_mode }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;">
+          {% if dev %}
+            <strong>{{ dev.name }}</strong><br/>
+            <span style="color:var(--text-muted);">{{ dev.serial }}</span>
+          {% else %}
+            <code style="font-size:11px; color:var(--text-muted);">{{ p.device_id[:12] }}…</code>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;">{{ site.name if site else '—' }}</td>
+        <td style="font-size:12px;">{{ org.name if org else '—' }}</td>
+        <td>
+          {% if p.source == 'simulation' %}
+            <span class="badge badge-gray">🔬 Sim</span>
+          {% elif p.source == 'file_import' %}
+            <span class="badge badge-yellow">📥 Import</span>
+          {% elif p.source == 'adms' %}
+            <span class="badge badge-green">📡 ADMS Push</span>
+          {% elif p.source == 'gateway' %}
+            <span class="badge badge-blue">🔗 Gateway</span>
+          {% else %}
+            <span class="badge badge-gray">{{ p.source }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="9" style="text-align:center; padding:48px; color:var(--text-muted);">
+          <div style="font-size:32px; margin-bottom:12px;">📡</div>
+          <div style="font-size:15px; margin-bottom:8px;">No attendance records yet</div>
+          <div style="font-size:13px;">
+            Connect a biometric device and have staff/students scan in, or click <strong>⚡ Quick Simulate</strong> above to generate a test punch.
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if punches %}
+  <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:12px; color:var(--text-muted);">
+      Showing {{ punches|length }} most recent of {{ stats.total }} total punches
+    </span>
+    <div style="display:flex; gap:8px;">
+      {% if offset > 0 %}
+        <a href="/ops/attendance?offset={{ [offset - limit, 0]|max }}&limit={{ limit }}{% if filters.org_id %}&org_id={{ filters.org_id }}{% endif %}" class="btn btn-secondary btn-sm">← Previous</a>
+      {% endif %}
+      {% if punches|length == limit %}
+        <a href="/ops/attendance?offset={{ offset + limit }}&limit={{ limit }}{% if filters.org_id %}&org_id={{ filters.org_id }}{% endif %}" class="btn btn-secondary btn-sm">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Data Pipeline Info -->
+<div class="card" style="background: rgba(99,102,241,0.04); border-color: rgba(99,102,241,0.2);">
+  <h4 style="font-size:13px; margin:0 0 12px; color:var(--accent);">📊 How Data Flows Into This Feed</h4>
+  <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; font-size:12px; color:var(--text-muted);">
+    <div>
+      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">📡 ADMS Push (ZKTeco)</div>
+      Device connects to BIP Edge on port 8001 and pushes attendance logs via HTTP. Punches appear here within milliseconds.
+    </div>
+    <div>
+      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">🔗 Gateway Agent</div>
+      Edge gateway polls LAN devices and uploads batches to BIP. Works offline — syncs when connectivity is restored.
+    </div>
+    <div>
+      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">📥 File Import</div>
+      Upload CSV, XLSX, or ZKTeco <code>attlog.dat</code> files via <a href="/ops/import">Import Sheet</a>. Great for legacy backfill.
+    </div>
+    <div>
+      <div style="font-weight:600; color:var(--text); margin-bottom:4px;">🔌 Webhook Delivery</div>
+      Every punch here is simultaneously dispatched to your connected software via <a href="/ops/integrations">webhooks</a> with HMAC signing.
+    </div>
+  </div>
+</div>
+{% endblock %}

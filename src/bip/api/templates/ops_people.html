@@ -1,0 +1,219 @@
+{% extends "ops_base.html" %}
+{% block title %}People & Roster — BIP Ops{% endblock %}
+{% block page_title %}👥 People & Roster{% endblock %}
+{% block topbar_actions %}
+  <a href="/ops/attendance" class="btn btn-secondary btn-sm">📡 View Attendance →</a>
+{% endblock %}
+{% block content %}
+
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+
+<div style="display:grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start;">
+  <!-- Add Person Form -->
+  <div style="display:flex; flex-direction:column; gap:20px;">
+    <div class="card">
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Add Person to Roster</h3>
+      <form method="post" action="/ops/people">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input class="form-control" type="text" name="display_name" required placeholder="e.g. Ananya Sharma" />
+        </div>
+
+        <div class="form-group">
+          <label>Person Type *</label>
+          <select class="form-control" name="person_type">
+            <option value="student">🎓 Student</option>
+            <option value="employee">👔 Employee</option>
+            <option value="staff">🔧 Staff</option>
+            <option value="visitor">🪪 Visitor</option>
+            <option value="contractor">🏗️ Contractor</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Organisation / School *</label>
+          <select class="form-control" name="org_id" required>
+            {% for o in orgs %}
+              <option value="{{ o.id }}">{{ o.name }} ({{ o.type }})</option>
+            {% else %}
+              <option value="default_org">Default Organisation</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>External Reference / Admission No.</label>
+          <input class="form-control" type="text" name="external_ref" placeholder="e.g. STU-2024-001 or EMP-HR-042" />
+          <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:4px;">
+            Used to match with your HRMS or SIS for deduplication.
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label>RFID Card Number (optional)</label>
+          <input class="form-control" type="text" name="card_no" placeholder="e.g. 0012345678" />
+        </div>
+
+        <div class="form-group">
+          <label>Manual PIN Override (optional)</label>
+          <input class="form-control" type="text" name="manual_pin" placeholder="Leave blank for auto-assign" />
+          <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:4px;">
+            Auto-assigns next available PIN from the org's range if left blank.
+          </small>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
+          Add to Roster
+        </button>
+      </form>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card">
+      <h4 style="margin-top:0; font-size:13px; margin-bottom:12px; color:var(--text-muted);">🔍 Filter Roster</h4>
+      <form method="get" action="/ops/people">
+        <div class="form-group">
+          <label>Organisation</label>
+          <select class="form-control" name="org_id" onchange="this.form.submit()">
+            <option value="">All Organisations</option>
+            {% for o in orgs %}
+              <option value="{{ o.id }}" {% if filters.org_id == o.id %}selected{% endif %}>{{ o.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Person Type</label>
+          <select class="form-control" name="person_type" onchange="this.form.submit()">
+            <option value="">All Types</option>
+            <option value="student" {% if filters.person_type == 'student' %}selected{% endif %}>Students</option>
+            <option value="employee" {% if filters.person_type == 'employee' %}selected{% endif %}>Employees</option>
+            <option value="staff" {% if filters.person_type == 'staff' %}selected{% endif %}>Staff</option>
+            <option value="visitor" {% if filters.person_type == 'visitor' %}selected{% endif %}>Visitors</option>
+            <option value="contractor" {% if filters.person_type == 'contractor' %}selected{% endif %}>Contractors</option>
+          </select>
+        </div>
+      </form>
+    </div>
+
+    <!-- PIN Range Info -->
+    <div class="card" style="border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.04);">
+      <h4 style="margin-top:0; font-size:13px; margin-bottom:10px; color:var(--accent);">📌 PIN Auto-Assignment</h4>
+      <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:0;">
+        Each organisation gets its own PIN range (default starts at <code>10001</code>). PINs are auto-incremented sequentially and guaranteed unique per org. The same PIN on two different organisations does <strong>not</strong> conflict.
+      </p>
+    </div>
+  </div>
+
+  <!-- People Table -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:15px;">
+        Roster
+        {% if filters.org_id or filters.person_type %}
+          <span class="badge badge-yellow" style="margin-left:8px;">Filtered</span>
+        {% endif %}
+      </h3>
+      <span class="badge badge-blue">{{ people|length }} people</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Person</th>
+          <th>PIN</th>
+          <th>Type</th>
+          <th>Organisation</th>
+          <th>External Ref</th>
+          <th>RFID Card</th>
+          <th>Status</th>
+          <th>Punch Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in people %}
+        {% set org = orgs_by_id.get(p.org_id, {}) %}
+        <tr>
+          <td>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:32px; height:32px; border-radius:50%; background: linear-gradient(135deg, var(--accent), #818cf8); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;">
+                {{ p.display_name[0].upper() }}
+              </div>
+              <div>
+                <div style="font-weight:500;">{{ p.display_name }}</div>
+                {% if p.external_ref %}
+                  <div style="font-size:11px; color:var(--text-muted);">{{ p.external_ref }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          <td>
+            <code style="font-size:13px; font-weight:600; color:var(--accent);">{{ p.pin }}</code>
+          </td>
+          <td>
+            {% if p.person_type == 'student' %}
+              <span class="badge badge-blue">🎓 Student</span>
+            {% elif p.person_type == 'employee' %}
+              <span class="badge badge-green">👔 Employee</span>
+            {% elif p.person_type == 'staff' %}
+              <span class="badge badge-yellow">🔧 Staff</span>
+            {% elif p.person_type == 'visitor' %}
+              <span class="badge badge-gray">🪪 Visitor</span>
+            {% else %}
+              <span class="badge badge-gray">{{ p.person_type }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;">{{ org.name if org else '—' }}</td>
+          <td style="font-size:12px; color:var(--text-muted);">{{ p.external_ref or '—' }}</td>
+          <td style="font-size:12px; color:var(--text-muted);">{{ p.card_no or '—' }}</td>
+          <td>
+            {% if p.active %}
+              <span class="badge badge-green">active</span>
+            {% else %}
+              <span class="badge badge-gray">inactive</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;">
+            <span style="font-weight:600; color:{{ 'var(--success)' if p.punch_count > 0 else 'var(--text-muted)' }};">
+              {{ p.punch_count }}
+            </span>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align:center; padding:48px; color:var(--text-muted);">
+            <div style="font-size:32px; margin-bottom:12px;">👥</div>
+            <div style="font-size:15px; margin-bottom:8px;">No people in roster yet</div>
+            <div style="font-size:13px;">
+              Add students or employees using the form on the left. Their PINs will be auto-assigned and they'll be matched to biometric punches in the attendance feed.
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Unknown PINs Alert -->
+{% if unmapped_pins %}
+<div class="card" style="border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.04); margin-top:0;">
+  <div style="display:flex; justify-content:space-between; align-items:start;">
+    <div>
+      <h4 style="margin:0 0 8px; font-size:14px; color:var(--warning);">⚠️ {{ unmapped_pins|length }} Unknown PIN(s) in Attendance Feed</h4>
+      <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px;">
+        These PINs have submitted punches but don't match any person in the roster. 
+        Add them above to see their names in the attendance report.
+      </p>
+    </div>
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    {% for pin in unmapped_pins %}
+      <code style="background:rgba(245,158,11,0.15); padding:4px 10px; border-radius:4px; font-size:13px; color:var(--warning);">{{ pin }}</code>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

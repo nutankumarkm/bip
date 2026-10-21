@@ -124,4 +124,14 @@
 - **1-Click Demo Login (`/ops/quick-login`):** Instant single-click authentication for non-technical customer evaluation.
 **Evidence:** 209 unit tests pass (5 new for self-serve UI in `test_ops_console.py`); all routes smoke-tested and verified against live background server on port 8000; `ruff check` and `ruff format` 100% clean.
 
+## People & Roster + Live Attendance Feed + Webhook Delivery Engine
+**Status:** DONE
+**Built:**
+- **People & Roster (`/ops/people`):** Web form to create and manage students, employees, staff, visitors, and contractors. Auto-assigns sequential PINs from the org's `pin_range_start` (or accepts a manual override). Displays a full roster table with punch counts and a sidebar showing unmapped PINs seen from devices not yet linked to a person.
+- **Live Attendance Feed (`/ops/attendance`):** Real-time punch viewer with stats panel (total punches, today's count, unique PINs seen, active devices, unmapped PINs). Filterable by organisation and verify mode (fingerprint / face / card / palm). Quick Simulate button fires a test punch directly from the page.
+- **ADMS Live Ingest (`src/bip/edge/adms.py`):** ATTLOG uploads from ZKTeco push terminals now flow directly into the central punch pipeline via `add_test_punch`, making them immediately visible in the Attendance Feed and triggering webhook delivery.
+- **Webhook Delivery Engine (`src/bip/api/delivery.py`):** Async, non-blocking webhook dispatch module. `dispatch_webhook` cryptographically signs each payload (HMAC-SHA256, `BIP-Signature` header), POSTs to consumer endpoints with 4 s timeout, and records every delivery (id, timestamp, status code, latency ms, error) in an in-memory log bounded at 100 entries. `trigger_punch_dispatch` fires background `asyncio.Task`s for all active webhooks matching the org on every new punch. Delivery logs are surfaced in the Integrations page.
+- **Ops Console Sidebar updated** with People & Roster and Attendance Feed navigation links.
+**Evidence:** 218 unit tests pass (9 new: 4 for People/Attendance pages in `test_ops_console.py`, 2 extra unauthenticated redirect cases for `/ops/people` and `/ops/attendance`, 2 for webhook delivery engine in `test_webhooks.py`, 1 for simulate-punch redirect check); `ruff check` and `ruff format` clean.
+
 
