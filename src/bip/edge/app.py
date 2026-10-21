@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from bip.core.logging import setup_logging
 from bip.core.settings import settings
+from bip.edge.adms import router as adms_router
 
 setup_logging(settings.log_level, settings.log_format)
 
@@ -15,6 +16,8 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+
+app.include_router(adms_router)
 
 
 @app.get("/health")

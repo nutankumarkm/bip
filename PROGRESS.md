@@ -22,7 +22,11 @@
 **Next:** M3 — Push ingestion (Edge, raw inbox, ingest worker, ADMS emulator)
 
 ## M3 — Push ingestion
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** ADMS/iClock parser (ATTLOG, OPERLOG, command results, template stripping, handshake/command rendering), Edge FastAPI app with full ADMS endpoint set (handshake, upload, getrequest, devicecmd, ping, registry, push), EdgeStore abstraction (in-memory for tests, Postgres-ready), pending device tracking, unknown serial rejection (ADR-011), ADMS device emulator with N virtual devices
+**Evidence:** 66 unit tests pass (30 new for M3); lint clean; parser handles 1000 punches, templates stripped, unknown serials refused with 403, pending devices tracked
+**Open issues:** Ingest worker processes raw_uploads in-memory only (Postgres-backed processing deferred to integration with Docker Compose); emulator→Edge e2e test needs running services
+**Next:** M4 — Consumer API and delivery
 
 ## M4 — Consumer API and delivery
 **Status:** NOT STARTED
