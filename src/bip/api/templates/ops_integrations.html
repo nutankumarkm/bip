@@ -1,0 +1,151 @@
+{% extends "ops_base.html" %}
+{% block title %}Software Integrations & Webhooks — BIP Ops{% endblock %}
+{% block page_title %}Software Integrations & Webhooks{% endblock %}
+{% block content %}
+
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+
+<!-- Partner Integrations Banner -->
+<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+  <div class="card" style="border-top: 3px solid #6366f1; padding: 16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <span style="font-size:20px;">🎓</span>
+      <h4 style="margin:0; font-size:15px; font-weight:600;">LearnX Platform</h4>
+    </div>
+    <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px; line-height:1.5;">
+      Student & staff campus attendance. Streams real-time gate entry/exit logs for parent SMS notifications and daily roll call.
+    </p>
+    <span class="badge badge-blue">Native Webhook Supported</span>
+  </div>
+
+  <div class="card" style="border-top: 3px solid #10b981; padding: 16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <span style="font-size:20px;">💼</span>
+      <h4 style="margin:0; font-size:15px; font-weight:600;">Saptta HRMS</h4>
+    </div>
+    <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px; line-height:1.5;">
+      Enterprise payroll & workforce tracking. Delivers sub-minute employee punch records, shift roster mapping, and overtime logs.
+    </p>
+    <span class="badge badge-green">Native Webhook Supported</span>
+  </div>
+
+  <div class="card" style="border-top: 3px solid #f59e0b; padding: 16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <span style="font-size:20px;">🌐</span>
+      <h4 style="margin:0; font-size:15px; font-weight:600;">Custom ERP / Webhook</h4>
+    </div>
+    <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px; line-height:1.5;">
+      Connect any proprietary ERP, database, or cloud application with cryptographically signed HMAC-SHA256 HTTP POST deliveries.
+    </p>
+    <span class="badge badge-yellow">HMAC SHA-256 Signed</span>
+  </div>
+</div>
+
+{% if test_result %}
+<div class="card" style="border-left: 4px solid {% if test_result.success %}var(--success){% else %}var(--warning){% endif %}; margin-bottom: 24px; background: rgba(99,102,241,0.04);">
+  <h4 style="margin:0 0 8px; font-size:15px;">
+    {% if test_result.success %}
+      ✅ Test Punch Delivered Successfully to <code>{{ tested_webhook.name }}</code>
+    {% else %}
+      📡 Dispatch Notice for <code>{{ tested_webhook.name }}</code>
+    {% endif %}
+  </h4>
+  <p style="font-size:13px; margin:0 0 6px;">
+    <strong>Status:</strong> {{ test_result.message }} &nbsp;|&nbsp; 
+    <strong>Latency:</strong> {{ test_result.latency_ms }} ms
+  </p>
+  <p style="font-size:12px; color:var(--text-muted); margin:0;">
+    Target Endpoint: <code>{{ tested_webhook.url }}</code>
+  </p>
+</div>
+{% endif %}
+
+<div style="display:grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start;">
+  <!-- Connect Form -->
+  <div class="card">
+    <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Connect Consumer Software</h3>
+    <form method="post" action="/ops/integrations/webhooks">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      
+      <div class="form-group">
+        <label>Integration / Software Name *</label>
+        <input class="form-control" type="text" name="name" required placeholder="e.g. LearnX School Attendance" />
+      </div>
+
+      <div class="form-group">
+        <label>Assigned Organisation / School *</label>
+        <select class="form-control" name="org_id" required>
+          {% for o in orgs %}
+            <option value="{{ o.id }}">{{ o.name }} ({{ o.type }})</option>
+          {% else %}
+            <option value="default_org">Default Organisation</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Webhook Ingestion Endpoint URL *</label>
+        <input class="form-control" type="url" name="url" required placeholder="https://api.yourdomain.com/bip/punches" />
+        <small style="color:var(--text-muted); font-size:11px; display:block; margin-top:4px;">
+          BIP will send HTTP POST requests with a <code>BIP-Signature</code> header.
+        </small>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
+        Connect Integration
+      </button>
+    </form>
+  </div>
+
+  <!-- Active Integrations & Live Test -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:15px;">Active Software Endpoints ({{ webhooks|length }})</h3>
+      <span class="badge badge-green">Real-Time Dispatch</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Webhook URL</th><th>HMAC Secret</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for w in webhooks %}
+        <tr>
+          <td><strong>{{ w.name }}</strong></td>
+          <td><code style="font-size:12px;">{{ w.url }}</code></td>
+          <td>
+            <code style="font-size:11px; color:var(--accent);">
+              {{ secrets.get(w.id, 'whsec_••••••••••••')[:16] }}…
+            </code>
+          </td>
+          <td><span class="badge badge-green">active</span></td>
+          <td>
+            <form method="post" action="/ops/integrations/test-punch" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <input type="hidden" name="webhook_id" value="{{ w.id }}" />
+              <button class="btn btn-secondary btn-sm" type="submit" title="Send a test punch payload to verify connectivity">
+                ⚡ Test
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="color:var(--text-muted); text-align:center; padding:32px;">
+            No software integrations connected yet. Enter your LearnX, Saptta HRMS, or ERP webhook URL on the left!
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+      <h4 style="font-size:13px; margin:0 0 8px; color:var(--text);">How BIP Ingestion Works</h4>
+      <p style="font-size:12px; color:var(--text-muted); line-height:1.5; margin:0;">
+        Whenever a student or employee touches the physical biometric machine, BIP Edge processes the fingerprint/face within <strong>&lt; 5 milliseconds</strong> and immediately pushes a standard JSON payload with an HMAC-SHA256 signature to your configured endpoint above.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

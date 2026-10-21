@@ -1,32 +1,127 @@
 {% extends "ops_base.html" %}
 {% block title %}Devices — BIP Ops{% endblock %}
-{% block page_title %}Devices{% endblock %}
+{% block page_title %}Biometric Machines & Devices{% endblock %}
 {% block content %}
-<div class="card">
-  <table>
-    <thead>
-      <tr><th>Serial</th><th>Family</th><th>Mode</th><th>Site</th><th>Org</th><th>Status</th></tr>
-    </thead>
-    <tbody>
-      {% for d in devices %}
-      <tr>
-        <td><code>{{ d.serial or '—' }}</code></td>
-        <td>{{ d.family }}</td>
-        <td><span class="badge badge-gray">{{ d.mode }}</span></td>
-        <td style="color:var(--text-muted);">{{ d.site_name }}</td>
-        <td style="color:var(--text-muted);">{{ d.org_name }}</td>
-        <td>
-          {% if d.active %}
-            <span class="badge badge-green">active</span>
+
+{% if registered_device %}
+<div class="card" style="border-left: 4px solid var(--accent); margin-bottom: 24px; background: rgba(99,102,241,0.06);">
+  <h3 style="margin-top:0; font-size:16px;">⚙️ Device Setup Instructions for <code>{{ registered_device.serial }}</code></h3>
+  <p style="font-size:13px; color:var(--text); margin-bottom:12px;">
+    Follow these steps on the physical machine to connect it to this platform:
+  </p>
+  {% if registered_device.family == 'zk_adms' %}
+  <ol style="font-size:13px; line-height:1.6; margin-left:20px; color:var(--text);">
+    <li>Press <strong>[M/OK]</strong> on the machine to open the Admin Menu.</li>
+    <li>Navigate to <strong>Comm. Settings</strong> ➔ <strong>Cloud Server / ADMS Settings</strong>.</li>
+    <li>Set <strong>Server Address</strong>: <code>{{ request.url.hostname }}</code> (or your server's public IP).</li>
+    <li>Set <strong>Server Port</strong>: <code>8001</code>.</li>
+    <li>Set <strong>Enable Cloud Server / Push Protocol</strong>: <code>ON</code>.</li>
+    <li>Save and exit. The device cloud icon will turn green within 10–30 seconds!</li>
+  </ol>
+  {% elif registered_device.family == 'hik_isapi' %}
+  <ol style="font-size:13px; line-height:1.6; margin-left:20px; color:var(--text);">
+    <li>Access the Hikvision device's Web GUI at its local IP address.</li>
+    <li>Go to <strong>Configuration</strong> ➔ <strong>Network</strong> ➔ <strong>Advanced Settings</strong> ➔ <strong>Integration Protocol</strong>.</li>
+    <li>Enable <strong>ISAPI</strong> and ensure the admin user is created.</li>
+    <li>BIP will poll attendance logs from the terminal automatically.</li>
+  </ol>
+  {% else %}
+  <p style="font-size:13px; color:var(--text-muted);">
+    Ensure the device is powered on and connected to the local network or paired with the BIP Gateway.
+  </p>
+  {% endif %}
+</div>
+{% endif %}
+
+<div style="display:grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start;">
+  <!-- Add Device Form -->
+  <div class="card">
+    <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Register Biometric Machine</h3>
+    <form method="post" action="/ops/devices">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      
+      <div class="form-group">
+        <label>Device Serial Number (from back sticker) *</label>
+        <input class="form-control" type="text" name="serial" required placeholder="e.g. BK49200481" />
+      </div>
+
+      <div class="form-group">
+        <label>Device Name / Location *</label>
+        <input class="form-control" type="text" name="name" required placeholder="e.g. Main Entrance Gate 1" />
+      </div>
+
+      <div class="form-group">
+        <label>Hardware Brand & Protocol *</label>
+        <select class="form-control" name="family">
+          <option value="zk_adms">ZKTeco / eSSL / Realtime (ADMS Push)</option>
+          <option value="hik_isapi">Hikvision MinMoe (Face Recognition ISAPI)</option>
+          <option value="biotime">ZKBioTime Cloud Server</option>
+          <option value="cosec">Matrix COSEC</option>
+          <option value="zk_tcp">LAN Standalone Terminal (via Gateway)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Install Site / Campus Gate *</label>
+        <select class="form-control" name="site_id" required>
+          {% for s in sites %}
+            <option value="{{ s.id }}">{{ s.name }} ({{ s.org_name }})</option>
           {% else %}
-            <span class="badge badge-red">inactive</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6" style="color:var(--text-muted); text-align:center; padding:24px;">No devices</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+            <option value="site_default">Default Site</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Connection Mode</label>
+        <select class="form-control" name="mode">
+          <option value="push">Push (Device streams to BIP Edge :8001)</option>
+          <option value="pull">Pull (BIP periodically reads device)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Local IP Address (optional, for Hikvision/LAN)</label>
+        <input class="form-control" type="text" name="ip_address" placeholder="e.g. 192.168.1.150" />
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
+        Register Machine
+      </button>
+    </form>
+  </div>
+
+  <!-- Devices Table -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:15px;">Connected Machines ({{ devices|length }})</h3>
+      <span class="badge badge-blue">Auto-Whitelisted</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Serial</th><th>Name</th><th>Protocol</th><th>Mode</th><th>Site</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for d in devices %}
+        <tr>
+          <td><code>{{ d.serial or '—' }}</code></td>
+          <td><strong>{{ d.name or d.serial }}</strong></td>
+          <td><span class="badge badge-gray">{{ d.family }}</span></td>
+          <td><span class="badge badge-gray">{{ d.mode }}</span></td>
+          <td style="color:var(--text-muted);">{{ d.site_name }}</td>
+          <td>
+            {% if d.active %}
+              <span class="badge badge-green">ready</span>
+            {% else %}
+              <span class="badge badge-red">inactive</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="color:var(--text-muted); text-align:center; padding:32px;">No biometric machines registered yet. Use the form on the left to add your first machine!</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

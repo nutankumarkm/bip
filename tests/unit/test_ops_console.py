@@ -307,3 +307,155 @@ def test_approval_rejection_works() -> None:
     updated = get_approval(req.id)
     assert updated is not None
     assert updated.status == "rejected"
+
+
+# ---------------------------------------------------------------------------
+# Self-serve customer UI tests
+# ---------------------------------------------------------------------------
+
+
+def test_ops_org_creation_post() -> None:
+    tok = _full_session("admin@test.com")
+    resp = client.post(
+        "/ops/orgs",
+        data={
+            "name": "St. Xavier's High School",
+            "partner_id": "test_partner",
+            "org_type": "school",
+            "timezone": "Asia/Kolkata",
+            "retention_days": "730",
+            "csrf_token": "test",
+        },
+        cookies={SESSION_COOKIE: tok},
+    )
+    assert resp.status_code == 200
+    assert "St. Xavier&#39;s High School" in resp.text or "St. Xavier's High School" in resp.text
+    assert "created successfully" in resp.text
+
+    from bip.api.routes.v1 import _orgs
+
+    found = any(o["name"] == "St. Xavier's High School" for o in _orgs.values())
+    assert found
+
+
+def test_ops_site_creation_post() -> None:
+    tok = _full_session("admin@test.com")
+    resp = client.post(
+        "/ops/sites",
+        data={
+            "name": "Academic Block North Gate",
+            "org_id": "org_demo",
+            "timezone": "Asia/Kolkata",
+            "csrf_token": "test",
+        },
+        cookies={SESSION_COOKIE: tok},
+    )
+    assert resp.status_code == 200
+    assert "Academic Block North Gate" in resp.text
+    assert "created successfully" in resp.text
+
+    from bip.api.routes.v1 import _sites
+
+    found = any(s["name"] == "Academic Block North Gate" for s in _sites.values())
+    assert found
+
+
+def test_ops_device_registration_post() -> None:
+    tok = _full_session("admin@test.com")
+    resp = client.post(
+        "/ops/devices",
+        data={
+            "serial": "ZK99998888",
+            "name": "Auditorium Main Gate",
+            "family": "zk_adms",
+            "site_id": "site_1",
+            "mode": "push",
+            "ip_address": "192.168.1.100",
+            "csrf_token": "test",
+        },
+        cookies={SESSION_COOKIE: tok},
+    )
+    assert resp.status_code == 200
+    assert "ZK99998888" in resp.text
+    assert "Auditorium Main Gate" in resp.text
+    assert "Device Setup Instructions" in resp.text
+    assert "Cloud Server / ADMS Settings" in resp.text
+
+    # Verify device is auto-whitelisted in edge store
+    from bip.edge.adms import _store
+
+    dev = pytest.importorskip("asyncio").run(_store.lookup_device("ZK99998888"))
+    assert dev is not None
+    assert dev.get("status") == "active"
+
+
+def test_ops_integrations_and_test_punch() -> None:
+    tok = _full_session("admin@test.com")
+    from bip.api.ops.auth import _SESSIONS
+
+    # GET page
+    resp = client.get("/ops/integrations", cookies={SESSION_COOKIE: tok})
+    assert resp.status_code == 200
+    assert "LearnX Platform" in resp.text
+    assert "Saptta HRMS" in resp.text
+
+    csrf = _SESSIONS[tok].get("csrf", "test")
+
+    # Connect new webhook
+    resp = client.post(
+        "/ops/integrations/webhooks",
+        data={
+            "name": "LearnX Production Webhook",
+            "url": "http://127.0.0.1:9999/dummy-webhook",
+            "org_id": "org_demo",
+            "csrf_token": csrf,
+        },
+        cookies={SESSION_COOKIE: tok},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    from bip.api.routes.v1 import _webhooks
+
+    wh = next((w for w in _webhooks.values() if w["name"] == "LearnX Production Webhook"), None)
+    assert wh is not None
+
+    # Trigger test punch
+    resp = client.post(
+        "/ops/integrations/test-punch",
+        data={
+            "webhook_id": wh["id"],
+            "csrf_token": csrf,
+        },
+        cookies={SESSION_COOKIE: tok},
+    )
+    assert resp.status_code == 200
+    assert "Dispatch Notice" in resp.text or "Test Punch" in resp.text
+    assert "LearnX Production Webhook" in resp.text
+
+
+def test_ops_import_csv_post() -> None:
+    tok = _full_session("admin@test.com")
+    from bip.api.ops.auth import _SESSIONS
+
+    # GET import page
+    resp = client.get("/ops/import", cookies={SESSION_COOKIE: tok})
+    assert resp.status_code == 200
+    assert "Upload Attendance File" in resp.text
+
+    csrf = _SESSIONS[tok].get("csrf", "test")
+
+    csv_data = b"pin,timestamp,verify_mode\n101,2026-10-21 08:30:00,fingerprint\n102,2026-10-21 08:35:00,face\n"
+    resp = client.post(
+        "/ops/import",
+        data={
+            "site_id": "site_default",
+            "device_id": "dev_imported",
+            "csrf_token": csrf,
+        },
+        files={"file": ("attendance.csv", csv_data, "text/csv")},
+        cookies={SESSION_COOKIE: tok},
+    )
+    assert resp.status_code == 200
+    assert "Processed &#39;attendance.csv&#39;" in resp.text or "attendance.csv" in resp.text
+    assert "2 valid punches ingested" in resp.text

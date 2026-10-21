@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -383,38 +383,488 @@ async def partners_post(
 
 
 # ---------------------------------------------------------------------------
-# Orgs, Sites, Devices (read-only views in ops)
+# Self-Serve Management: Orgs, Sites, Devices, Integrations, Import
 # ---------------------------------------------------------------------------
 
 
 @router.get("/orgs", response_class=HTMLResponse)
-async def orgs_get(request: Request, partner_id: str | None = None) -> Any:
+async def orgs_get(request: Request, partner_id: str | None = None, success: str = "", error: str = "") -> Any:
     token = request.cookies.get(SESSION_COOKIE)
     sess = get_session(token)
     if not sess or sess.get("pre_totp"):
         return RedirectResponse("/ops/login", status_code=303)
     orgs = _get_org_list(partner_id)
-    return _render(request, "ops_orgs.html", _ctx(request, sess, "orgs", orgs=orgs))
+    partners = _get_partner_list()
+    return _render(
+        request,
+        "ops_orgs.html",
+        _ctx(request, sess, "orgs", orgs=orgs, partners=partners, success=success, error=error),
+    )
+
+
+@router.post("/orgs", response_class=HTMLResponse)
+async def orgs_post(
+    request: Request,
+    name: str = Form(...),
+    partner_id: str = Form(...),
+    org_type: str = Form("school"),
+    timezone: str = Form("Asia/Kolkata"),
+    retention_days: int = Form(730),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/orgs?error=Invalid+CSRF+token", status_code=303)
+
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.auth import register_org
+    from bip.api.routes.v1 import _orgs
+
+    oid = str(uuid.uuid4())
+    _orgs[oid] = {
+        "id": oid,
+        "partner_id": partner_id,
+        "type": org_type,
+        "name": name.strip(),
+        "timezone": timezone,
+        "retention_days": int(retention_days),
+        "pin_range_start": 10001,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    register_org(oid, partner_id)
+    log_audit(sess["email"], "create_org", "org", oid, {"name": name, "partner_id": partner_id})
+
+    orgs = _get_org_list()
+    partners = _get_partner_list()
+    return _render(
+        request,
+        "ops_orgs.html",
+        _ctx(
+            request, sess, "orgs", orgs=orgs, partners=partners, success=f"Organisation '{name}' created successfully!"
+        ),
+    )
 
 
 @router.get("/sites", response_class=HTMLResponse)
-async def sites_get(request: Request) -> Any:
+async def sites_get(request: Request, success: str = "", error: str = "") -> Any:
     token = request.cookies.get(SESSION_COOKIE)
     sess = get_session(token)
     if not sess or sess.get("pre_totp"):
         return RedirectResponse("/ops/login", status_code=303)
     sites = _get_site_list()
-    return _render(request, "ops_sites.html", _ctx(request, sess, "sites", sites=sites))
+    orgs = _get_org_list()
+    return _render(
+        request,
+        "ops_sites.html",
+        _ctx(request, sess, "sites", sites=sites, orgs=orgs, success=success, error=error),
+    )
+
+
+@router.post("/sites", response_class=HTMLResponse)
+async def sites_post(
+    request: Request,
+    name: str = Form(...),
+    org_id: str = Form(...),
+    timezone: str = Form("Asia/Kolkata"),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/sites?error=Invalid+CSRF+token", status_code=303)
+
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _sites
+
+    sid = str(uuid.uuid4())
+    _sites[sid] = {
+        "id": sid,
+        "org_id": org_id,
+        "name": name.strip(),
+        "timezone": timezone,
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    log_audit(sess["email"], "create_site", "site", sid, {"name": name, "org_id": org_id})
+
+    sites = _get_site_list()
+    orgs = _get_org_list()
+    return _render(
+        request,
+        "ops_sites.html",
+        _ctx(request, sess, "sites", sites=sites, orgs=orgs, success=f"Site / Gate '{name}' created successfully!"),
+    )
 
 
 @router.get("/devices", response_class=HTMLResponse)
-async def devices_get(request: Request) -> Any:
+async def devices_get(request: Request, success: str = "", error: str = "") -> Any:
     token = request.cookies.get(SESSION_COOKIE)
     sess = get_session(token)
     if not sess or sess.get("pre_totp"):
         return RedirectResponse("/ops/login", status_code=303)
     devices = _get_device_list()
-    return _render(request, "ops_devices.html", _ctx(request, sess, "devices", devices=devices))
+    sites = _get_site_list()
+    return _render(
+        request,
+        "ops_devices.html",
+        _ctx(request, sess, "devices", devices=devices, sites=sites, success=success, error=error),
+    )
+
+
+@router.post("/devices", response_class=HTMLResponse)
+async def devices_post(
+    request: Request,
+    serial: str = Form(...),
+    name: str = Form(...),
+    family: str = Form("zk_adms"),
+    site_id: str = Form(...),
+    mode: str = Form("push"),
+    ip_address: str = Form(""),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/devices?error=Invalid+CSRF+token", status_code=303)
+
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _devices, _sites
+
+    did = str(uuid.uuid4())
+    serial_clean = serial.strip()
+    name_clean = name.strip()
+    org_id = _sites.get(site_id, {}).get("org_id", "default_org")
+
+    device_record = {
+        "id": did,
+        "serial": serial_clean,
+        "name": name_clean,
+        "family": family,
+        "vendor": family.split("_")[0] if "_" in family else family,
+        "model": family,
+        "site_id": site_id,
+        "org_id": org_id,
+        "mode": mode,
+        "ip_address": ip_address.strip() or None,
+        "status": "ready",
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    _devices[did] = device_record
+
+    # Whitelist device in edge store so push traffic is immediately accepted
+    try:
+        from bip.edge.adms import _store
+
+        await _store.register_device(serial_clean, {"id": did, "status": "active", "serial": serial_clean})
+    except Exception:
+        pass
+
+    log_audit(sess["email"], "register_device", "device", did, {"serial": serial_clean, "name": name_clean})
+
+    devices = _get_device_list()
+    sites = _get_site_list()
+    registered_info = {
+        "id": did,
+        "serial": serial_clean,
+        "name": name_clean,
+        "family": family,
+        "mode": mode,
+    }
+    return _render(
+        request,
+        "ops_devices.html",
+        _ctx(
+            request,
+            sess,
+            "devices",
+            devices=devices,
+            sites=sites,
+            registered_device=registered_info,
+            success=f"Biometric machine '{name_clean}' ({serial_clean}) registered and auto-whitelisted!",
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integrations & Webhooks
+# ---------------------------------------------------------------------------
+
+
+@router.get("/integrations", response_class=HTMLResponse)
+async def integrations_get(request: Request, success: str = "", error: str = "") -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+
+    from bip.api.routes.v1 import _webhook_secrets, _webhooks
+
+    webhooks = list(_webhooks.values())
+    orgs = _get_org_list()
+    return _render(
+        request,
+        "ops_integrations.html",
+        _ctx(
+            request,
+            sess,
+            "integrations",
+            webhooks=webhooks,
+            secrets=_webhook_secrets,
+            orgs=orgs,
+            success=success,
+            error=error,
+        ),
+    )
+
+
+@router.post("/integrations/webhooks", response_class=HTMLResponse)
+async def integrations_webhook_create(
+    request: Request,
+    name: str = Form(...),
+    url: str = Form(...),
+    org_id: str = Form(...),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/integrations?error=Invalid+CSRF+token", status_code=303)
+
+    import secrets
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _webhook_secrets, _webhooks
+
+    wh_id = str(uuid.uuid4())
+    secret = secrets.token_urlsafe(32)
+    wh = {
+        "id": wh_id,
+        "name": name.strip(),
+        "org_id": org_id,
+        "url": url.strip(),
+        "events": ["punch.created", "device.status_changed"],
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    _webhooks[wh_id] = wh
+    _webhook_secrets[wh_id] = secret
+    log_audit(sess["email"], "create_webhook", "webhook", wh_id, {"url": url, "name": name})
+
+    return RedirectResponse(
+        f"/ops/integrations?success=Integration+webhook+for+'{name}'+connected+successfully!", status_code=303
+    )
+
+
+@router.post("/integrations/test-punch", response_class=HTMLResponse)
+async def integrations_test_punch(
+    request: Request,
+    webhook_id: str = Form(...),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/integrations?error=Invalid+CSRF+token", status_code=303)
+
+    import time
+    from datetime import UTC, datetime
+
+    import httpx
+
+    from bip.api.routes.v1 import _webhook_secrets, _webhooks
+    from bip.api.webhooks import sign_webhook
+
+    wh = _webhooks.get(webhook_id)
+    if not wh:
+        return RedirectResponse("/ops/integrations?error=Webhook+not+found", status_code=303)
+
+    secret = _webhook_secrets.get(webhook_id, "test_secret")
+    test_payload = {
+        "event": "punch.created",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "punch": {
+            "id": f"test_pnc_{int(time.time())}",
+            "device_serial": "ZK_TEST_DEMO",
+            "person_id": "EMP_1001",
+            "person_name": "Test User",
+            "verify_mode": "fingerprint",
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+    }
+    payload_str = json.dumps(test_payload)
+    sig_header = sign_webhook(payload_str, secret)
+
+    start = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.post(
+                wh["url"],
+                content=payload_str,
+                headers={"Content-Type": "application/json", "BIP-Signature": sig_header},
+            )
+            latency_ms = round((time.perf_counter() - start) * 1000, 1)
+            test_result = {
+                "status_code": resp.status_code,
+                "latency_ms": latency_ms,
+                "success": resp.is_success,
+                "message": f"HTTP {resp.status_code} in {latency_ms}ms",
+            }
+    except Exception as exc:
+        latency_ms = round((time.perf_counter() - start) * 1000, 1)
+        test_result = {
+            "status_code": 0,
+            "latency_ms": latency_ms,
+            "success": False,
+            "message": f"Connection notice: {type(exc).__name__} ({exc})",
+        }
+
+    webhooks = list(_webhooks.values())
+    orgs = _get_org_list()
+    return _render(
+        request,
+        "ops_integrations.html",
+        _ctx(
+            request,
+            sess,
+            "integrations",
+            webhooks=webhooks,
+            secrets=_webhook_secrets,
+            orgs=orgs,
+            test_result=test_result,
+            tested_webhook=wh,
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Attendance Spreadsheet Importer
+# ---------------------------------------------------------------------------
+
+
+@router.get("/import", response_class=HTMLResponse)
+async def import_get(request: Request, success: str = "", error: str = "") -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    return _render(
+        request,
+        "ops_import.html",
+        _ctx(
+            request,
+            sess,
+            "import",
+            sites=_get_site_list(),
+            devices=_get_device_list(),
+            success=success,
+            error=error,
+        ),
+    )
+
+
+@router.post("/import", response_class=HTMLResponse)
+async def import_post(
+    request: Request,
+    file: UploadFile = File(...),
+    site_id: str = Form(...),
+    device_id: str = Form(""),
+    csrf_token: str = Form(...),
+) -> Any:
+    token = request.cookies.get(SESSION_COOKIE)
+    sess = get_session(token)
+    if not sess or sess.get("pre_totp"):
+        return RedirectResponse("/ops/login", status_code=303)
+    if not _check_csrf(request, csrf_token):
+        return RedirectResponse("/ops/import?error=Invalid+CSRF+token", status_code=303)
+
+    from bip.api.routes.v1 import _sites, add_test_punch
+    from bip.connectors.file_import.importer import FileImporter
+
+    content = await file.read()
+    filename = file.filename or "upload.csv"
+    importer = FileImporter()
+
+    try:
+        if filename.lower().endswith(".xlsx"):
+            report = importer.parse_xlsx(content)
+        elif filename.lower().endswith(".dat"):
+            report = importer.parse_dat(content)
+        else:
+            report = importer.parse_csv(content)
+
+        site = _sites.get(site_id, {})
+        org_id = site.get("org_id", "default_org")
+        target_dev_id = device_id or "imported_device"
+
+        ingested_count = 0
+        for punch in report.punches:
+            add_test_punch(
+                org_id=org_id,
+                site_id=site_id,
+                device_id=target_dev_id,
+                pin=punch.device_pin,
+                occurred_at=punch.device_local_time,
+                verify_mode=punch.verify_mode,
+                source="file_import",
+            )
+            ingested_count += 1
+
+        log_audit(
+            sess["email"],
+            "import_sheet",
+            "import",
+            filename,
+            {"total": report.rows_total, "ok": report.rows_ok, "failed": report.rows_failed},
+        )
+
+        return _render(
+            request,
+            "ops_import.html",
+            _ctx(
+                request,
+                sess,
+                "import",
+                sites=_get_site_list(),
+                devices=_get_device_list(),
+                report=report,
+                filename=filename,
+                ingested_count=ingested_count,
+                success=f"Processed '{filename}': {report.rows_ok} valid punches ingested, {report.rows_failed} quarantined.",
+            ),
+        )
+    except Exception as exc:
+        return _render(
+            request,
+            "ops_import.html",
+            _ctx(
+                request,
+                sess,
+                "import",
+                sites=_get_site_list(),
+                devices=_get_device_list(),
+                error=f"Error parsing file: {exc}",
+            ),
+            status_code=400,
+        )
 
 
 # ---------------------------------------------------------------------------

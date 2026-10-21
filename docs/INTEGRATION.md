@@ -126,23 +126,20 @@ import hmac
 import hashlib
 import time
 
+
 def verify_bip_webhook(payload_bytes: bytes, header: str, secret: str) -> bool:
     # Parse header: t=<unix_ts>,v1=<hex_signature>
     parts = dict(item.split("=") for item in header.split(","))
     timestamp = parts.get("t")
     signature = parts.get("v1")
-    
+
     # Replay protection: verify timestamp within 300 seconds
     if abs(time.time() - int(timestamp)) > 300:
         return False
-        
+
     canonical = f"{timestamp}.{payload_bytes.decode('utf-8')}"
-    expected = hmac.new(
-        secret.encode("utf-8"),
-        canonical.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
-    
+    expected = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+
     return hmac.compare_digest(expected, signature)
 ```
 

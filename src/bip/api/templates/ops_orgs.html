@@ -1,28 +1,92 @@
 {% extends "ops_base.html" %}
 {% block title %}Organisations — BIP Ops{% endblock %}
-{% block page_title %}Organisations{% endblock %}
+{% block page_title %}Organisations & Institutions{% endblock %}
 {% block content %}
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-<div class="card">
-  <table>
-    <thead>
-      <tr><th>ID</th><th>Name</th><th>Type</th><th>Partner</th><th>Retention</th><th>Sites</th><th>Devices</th></tr>
-    </thead>
-    <tbody>
-      {% for o in orgs %}
-      <tr>
-        <td><code style="font-size:11px;">{{ o.id[:8] }}…</code></td>
-        <td><strong>{{ o.name }}</strong></td>
-        <td><span class="badge badge-gray">{{ o.type }}</span></td>
-        <td style="color:var(--text-muted);">{{ o.partner_name }}</td>
-        <td>{{ o.retention_days }}d</td>
-        <td>{{ o.site_count }}</td>
-        <td>{{ o.device_count }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="7" style="color:var(--text-muted); text-align:center; padding:24px;">No organisations</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+
+<div style="display:grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start;">
+  <!-- Create Org Form -->
+  <div class="card">
+    <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Create Organisation / School</h3>
+    <form method="post" action="/ops/orgs">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      
+      <div class="form-group">
+        <label>Organisation / School Name *</label>
+        <input class="form-control" type="text" name="name" required placeholder="e.g. St. Xavier's International School" />
+      </div>
+
+      <div class="form-group">
+        <label>Partner / Reseller *</label>
+        <select class="form-control" name="partner_id" required>
+          {% for p in partners %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+          {% else %}
+            <option value="default_partner">Default Partner</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Organisation Type *</label>
+        <select class="form-control" name="org_type">
+          <option value="school">School / K-12</option>
+          <option value="university">University / Higher Ed</option>
+          <option value="corporate">Corporate / Office</option>
+          <option value="factory">Factory / Industrial</option>
+          <option value="hospital">Hospital / Healthcare</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Default Timezone</label>
+        <select class="form-control" name="timezone">
+          <option value="Asia/Kolkata">Asia/Kolkata (IST +05:30)</option>
+          <option value="UTC">UTC (+00:00)</option>
+          <option value="Asia/Dubai">Asia/Dubai (GST +04:00)</option>
+          <option value="Asia/Singapore">Asia/Singapore (SGT +08:00)</option>
+          <option value="America/New_York">America/New_York (EST/EDT)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Data Retention Policy (days)</label>
+        <input class="form-control" type="number" name="retention_days" value="730" min="30" max="3650" />
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
+        Create Organisation
+      </button>
+    </form>
+  </div>
+
+  <!-- Orgs Table -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:15px;">Active Organisations ({{ orgs|length }})</h3>
+      <span class="badge badge-blue">Multi-Tenant</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Type</th><th>Partner</th><th>Retention</th><th>Sites</th><th>Devices</th></tr>
+      </thead>
+      <tbody>
+        {% for o in orgs %}
+        <tr>
+          <td><code style="font-size:11px;">{{ o.id[:8] }}…</code></td>
+          <td><strong>{{ o.name }}</strong></td>
+          <td><span class="badge badge-gray">{{ o.type }}</span></td>
+          <td style="color:var(--text-muted);">{{ o.partner_name }}</td>
+          <td>{{ o.retention_days }}d</td>
+          <td>{{ o.site_count }}</td>
+          <td>{{ o.device_count }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="color:var(--text-muted); text-align:center; padding:32px;">No organisations registered yet. Use the form on the left to create your first organisation!</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

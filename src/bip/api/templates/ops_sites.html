@@ -1,25 +1,74 @@
 {% extends "ops_base.html" %}
-{% block title %}Sites — BIP Ops{% endblock %}
-{% block page_title %}Sites{% endblock %}
+{% block title %}Sites & Campus Gates — BIP Ops{% endblock %}
+{% block page_title %}Sites & Campus Gates{% endblock %}
 {% block content %}
-<div class="card">
-  <table>
-    <thead>
-      <tr><th>ID</th><th>Name</th><th>Org</th><th>Timezone</th><th>Devices</th></tr>
-    </thead>
-    <tbody>
-      {% for s in sites %}
-      <tr>
-        <td><code style="font-size:11px;">{{ s.id[:8] }}…</code></td>
-        <td><strong>{{ s.name }}</strong></td>
-        <td style="color:var(--text-muted);">{{ s.org_name }}</td>
-        <td>{{ s.timezone }}</td>
-        <td>{{ s.device_count }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="5" style="color:var(--text-muted); text-align:center; padding:24px;">No sites</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+
+<div style="display:grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start;">
+  <!-- Create Site Form -->
+  <div class="card">
+    <h3 style="margin-top:0; font-size:15px; margin-bottom:16px;">➕ Add Campus Gate / Site</h3>
+    <form method="post" action="/ops/sites">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+      
+      <div class="form-group">
+        <label>Site / Gate Name *</label>
+        <input class="form-control" type="text" name="name" required placeholder="e.g. Main Campus — North Gate" />
+      </div>
+
+      <div class="form-group">
+        <label>Organisation / School *</label>
+        <select class="form-control" name="org_id" required>
+          {% for o in orgs %}
+            <option value="{{ o.id }}">{{ o.name }} ({{ o.type }})</option>
+          {% else %}
+            <option value="default_org">Default Organisation</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Site Timezone</label>
+        <select class="form-control" name="timezone">
+          <option value="Asia/Kolkata">Asia/Kolkata (IST +05:30)</option>
+          <option value="UTC">UTC (+00:00)</option>
+          <option value="Asia/Dubai">Asia/Dubai (GST +04:00)</option>
+          <option value="Asia/Singapore">Asia/Singapore (SGT +08:00)</option>
+          <option value="America/New_York">America/New_York (EST/EDT)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:10px;" type="submit">
+        Add Site / Gate
+      </button>
+    </form>
+  </div>
+
+  <!-- Sites Table -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:15px;">Registered Sites ({{ sites|length }})</h3>
+      <span class="badge badge-blue">Physical Locations</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Organisation</th><th>Timezone</th><th>Devices</th></tr>
+      </thead>
+      <tbody>
+        {% for s in sites %}
+        <tr>
+          <td><code style="font-size:11px;">{{ s.id[:8] }}…</code></td>
+          <td><strong>{{ s.name }}</strong></td>
+          <td style="color:var(--text-muted);">{{ s.org_name }}</td>
+          <td>{{ s.timezone }}</td>
+          <td>{{ s.device_count }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="color:var(--text-muted); text-align:center; padding:32px;">No sites registered yet. Use the form on the left to add your first campus gate!</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
