@@ -29,7 +29,11 @@
 **Next:** M4 — Consumer API and delivery
 
 ## M4 — Consumer API and delivery
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** OAuth2 client credentials with JWT (15-min tokens, SHA-256 hashed secrets), scope-based authorization, partner→org access control, Consumer API v1 (orgs, sites, devices, cursor-based punch feed ordered by seq, unmapped-pins, webhooks CRUD), webhook signing/verification (HMAC-SHA256 with `t=<unix>,v1=<hex>`), Python client library (BIPClient with token caching + iter_punches + upsert/delete person, LocalFeedClient for gateway), consumer-side webhook verification helper
+**Evidence:** 83 unit tests pass (17 new for M4 — OAuth, orgs, sites, devices, cursor feed, unmapped PINs, webhooks, cross-partner denial, webhook signatures); lint and format clean
+**Open issues:** In-memory stores for API testing (Postgres-backed in Docker Compose); JWT InsecureKeyLength warning in tests (default test secret < 32 bytes — prod uses longer key)
+**Next:** M5 — People and commands
 
 ## M5 — People and commands
 **Status:** NOT STARTED
