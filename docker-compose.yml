@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bip_owner
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: bip
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bip_owner -d bip"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    command: ["python", "-m", "uvicorn", "bip.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bip_app:changeme@postgres:5432/bip
+      DATABASE_URL_SYNC: postgresql://bip_owner:changeme@postgres:5432/bip
+      BIP_MASTER_KEY: dGVzdC1rZXktMzItYnl0ZXMtZm9yLWRldg==
+      BIP_JWT_SECRET: dev-jwt-secret-change-in-prod
+      BIP_LOG_LEVEL: INFO
+      BIP_LOG_FORMAT: json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  edge:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    command: ["python", "-m", "uvicorn", "bip.edge.app:app", "--host", "0.0.0.0", "--port", "8081"]
+    ports:
+      - "8081:8081"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bip_system:changeme@postgres:5432/bip
+      DATABASE_URL_SYNC: postgresql://bip_owner:changeme@postgres:5432/bip
+      BIP_MASTER_KEY: dGVzdC1rZXktMzItYnl0ZXMtZm9yLWRldg==
+      BIP_LOG_LEVEL: INFO
+      BIP_LOG_FORMAT: json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8081/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    command: ["python", "-m", "bip.workers.main"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bip_system:changeme@postgres:5432/bip
+      DATABASE_URL_SYNC: postgresql://bip_owner:changeme@postgres:5432/bip
+      BIP_MASTER_KEY: dGVzdC1rZXktMzItYnl0ZXMtZm9yLWRldg==
+      BIP_LOG_LEVEL: INFO
+      BIP_LOG_FORMAT: json
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

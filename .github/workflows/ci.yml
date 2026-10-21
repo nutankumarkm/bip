@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check src/ tests/ clients/
+      - run: ruff format --check src/ tests/ clients/
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: bip_owner
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: bip
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest tests/ -v --tb=short -m "not e2e"
+        env:
+          DATABASE_URL: postgresql+asyncpg://bip_owner:changeme@localhost:5432/bip
+          DATABASE_URL_SYNC: postgresql://bip_owner:changeme@localhost:5432/bip
+          BIP_MASTER_KEY: dGVzdC1rZXktMzItYnl0ZXMtZm9yLWRldg==
+          BIP_JWT_SECRET: ci-test-secret
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: python -m mypy src/bip/sdk src/bip/core --strict
