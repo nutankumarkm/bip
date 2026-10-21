@@ -1,0 +1,19 @@
+<service>
+  <id>bip-gateway</id>
+  <name>BIP Gateway Service</name>
+  <description>Biometric Integration Platform Gateway Agent for LAN device synchronization</description>
+  <executable>%BASE%\bip-gateway.exe</executable>
+  <arguments>run --config "%ProgramData%\bip-gateway\gateway.json"</arguments>
+  <logmode>rotate</logmode>
+  <logpath>%ProgramData%\bip-gateway\logs</logpath>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="60 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <security>
+    <!-- Machine-level service account -->
+    <user>NT AUTHORITY\LocalService</user>
+  </security>
+</service>

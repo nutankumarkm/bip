@@ -43,7 +43,11 @@
 **Next:** M6 — Gateway
 
 ## M6 — Gateway
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** Ed25519 request signing/verification (ADR-009, canonical message `<METHOD>\n<path with query>\n<timestamp>\n<sha256 hex>` with base64 signatures, clock skew checks <300s); signed Gateway API under `/gw/v1` (pairing, config, long-poll commands, idempotent batch punch upload, command execution result, heartbeat, LAN discovery reporting, signed release manifest); consumer gateway endpoints under `/v1/orgs/{org_id}/gateways` (8-digit pairing code valid 15m, list, get, revoke, device assignment); Gateway agent (`bip.gateway` CLI with pair and run, SQLite outbox in WAL mode, `DevicePoller`, `OutboxUploader` with exponential backoff, `CommandRunner`, `HeartbeatSender`, `local_feed` API server on localhost:47800 with token auth for LearnX, `NetworkDiscovery` subnet scanner, `AgentUpdater` with signature verification, staging, swap and rollback); `zk_tcp` connector adapter isolating pyzk and implementing BIP SDK `Connector` protocol; `FakeZKClient` emulator; packaging in `deploy/agent/` (PyInstaller spec, WinSW service XML, systemd unit, Raspberry Pi deployment guide).
+**Evidence:** 137 unit tests pass (23 new for M6); ruff check and format clean; simulated 72h offline period (1,200 punches across multiple devices) syncs with zero loss; batch upload idempotency verified; tampered signatures, tampered payloads, and clock skew >300s rejected.
+**Open issues:** In-memory stores for API testing (Postgres-backed in Docker Compose); DPAPI fallback to file when pywin32 is not installed.
+**Next:** M7 — More connectors (hik_isapi, biotime, db_read, file_import, cosec stub, capability registry, docs/CAPABILITIES.md)
 
 ## M7 — More connectors
 **Status:** NOT STARTED

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from bip.api.routes.gateway import (
+    consumer_gateway_router,
+    gateway_api_router,
+)
 from bip.api.routes.oauth import router as oauth_router
 from bip.api.routes.v1 import router as v1_router
 from bip.core.logging import setup_logging
@@ -20,6 +24,8 @@ app = FastAPI(
 
 app.include_router(oauth_router)
 app.include_router(v1_router)
+app.include_router(consumer_gateway_router)
+app.include_router(gateway_api_router)
 
 
 @app.get("/health")

@@ -1,0 +1,25 @@
+[Unit]
+Description=Biometric Integration Platform (BIP) Gateway Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bip-gateway
+Group=bip-gateway
+WorkingDirectory=/var/lib/bip-gateway
+ExecStart=/usr/local/bin/bip-gateway run --config /etc/bip-gateway/gateway.json
+Restart=always
+RestartSec=10s
+
+# Hardening
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
