@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}BIP Ops Console{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5ViYgSibmK" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #252837;
+      --border: #2e3147;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --radius: 8px;
+      --font: 'Inter', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; }
+    .sidebar-logo { padding: 0 20px 20px; font-size: 18px; font-weight: 700; color: var(--accent); border-bottom: 1px solid var(--border); }
+    .sidebar-logo span { font-size: 11px; font-weight: 400; color: var(--text-muted); display: block; }
+    .sidebar-nav { flex: 1; padding-top: 12px; }
+    .sidebar-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: var(--text-muted); font-size: 13px; transition: background 0.15s, color 0.15s; }
+    .sidebar-nav a:hover, .sidebar-nav a.active { background: var(--surface2); color: var(--text); text-decoration: none; }
+    .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+    .main-content { flex: 1; margin-left: 220px; }
+    .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+    .topbar h1 { font-size: 16px; font-weight: 600; }
+    .topbar-actions { display: flex; gap: 10px; align-items: center; }
+    .page-body { padding: 28px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(16,185,129,0.15); color: var(--success); }
+    .badge-yellow { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-red { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .badge-blue { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .badge-gray { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: background 0.15s, opacity 0.15s; text-decoration: none; }
+    .btn:hover { opacity: 0.88; text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+    .form-control { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .form-control:focus { border-color: var(--accent); }
+    .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
+    .alert-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .alert-success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request .htmx-indicator { opacity: 1; }
+    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 16px; font-size: 13px; }
+  </style>
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+{% if user %}
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      BIP
+      <span>Ops Console</span>
+    </div>
+    <div class="sidebar-nav">
+      <a href="/ops/" {% if active_page == 'dashboard' %}class="active"{% endif %}>📊 Dashboard</a>
+      <a href="/ops/partners" {% if active_page == 'partners' %}class="active"{% endif %}>🏢 Partners</a>
+      <a href="/ops/orgs" {% if active_page == 'orgs' %}class="active"{% endif %}>🏫 Organisations</a>
+      <a href="/ops/sites" {% if active_page == 'sites' %}class="active"{% endif %}>📍 Sites</a>
+      <a href="/ops/devices" {% if active_page == 'devices' %}class="active"{% endif %}>🖥️ Devices</a>
+      <a href="/ops/gateways" {% if active_page == 'gateways' %}class="active"{% endif %}>🔗 Gateways</a>
+      <a href="/ops/approvals" {% if active_page == 'approvals' %}class="active"{% endif %}>
+        ✅ Approvals
+        {% if pending_approvals > 0 %}<span class="badge badge-yellow" style="margin-left:auto">{{ pending_approvals }}</span>{% endif %}
+      </a>
+      <a href="/ops/audit" {% if active_page == 'audit' %}class="active"{% endif %}>📋 Audit Log</a>
+    </div>
+    <div class="sidebar-footer">
+      Signed in as<br/><strong>{{ user.email }}</strong>
+      <br/><a href="/ops/logout" style="font-size:12px; color: var(--danger)">Sign out</a>
+    </div>
+  </nav>
+  <div class="main-content">
+    <div class="topbar">
+      <h1>{% block page_title %}{% endblock %}</h1>
+      <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+    </div>
+    <div class="page-body">
+      {% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% else %}
+{% block auth_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

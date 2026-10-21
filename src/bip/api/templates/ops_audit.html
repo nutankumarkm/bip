@@ -1,0 +1,48 @@
+{% extends "ops_base.html" %}
+{% block title %}Audit Log — BIP Ops{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" action="/ops/audit" style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+    <input class="form-control" style="width:200px" type="text" name="resource_type" value="{{ filters.resource_type or '' }}" placeholder="Resource type (e.g. gateway)" />
+    <input class="form-control" style="width:220px" type="text" name="actor" value="{{ filters.actor or '' }}" placeholder="Actor email" />
+    <button class="btn btn-secondary btn-sm" type="submit">Filter</button>
+    <a href="/ops/audit" class="btn btn-sm btn-secondary">Clear</a>
+  </form>
+  <table>
+    <thead>
+      <tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Resource</th><th>IP</th></tr>
+    </thead>
+    <tbody>
+      {% for entry in entries %}
+      <tr>
+        <td style="white-space:nowrap; color:var(--text-muted);">{{ entry.ts.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>{{ entry.actor }}</td>
+        <td><span class="badge badge-blue">{{ entry.action }}</span></td>
+        <td>
+          <code style="font-size:11px;">{{ entry.resource_type }}/{{ entry.resource_id[:12] }}</code>
+          {% if entry.detail %}
+          <details style="display:inline; margin-left:8px;">
+            <summary style="cursor:pointer; font-size:11px; color:var(--text-muted);">detail</summary>
+            <pre style="font-size:11px; background:var(--surface2); padding:8px; border-radius:4px; margin-top:4px;">{{ entry.detail | tojson(indent=2) }}</pre>
+          </details>
+          {% endif %}
+        </td>
+        <td style="color:var(--text-muted); font-size:12px;">{{ entry.ip or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="color:var(--text-muted); text-align:center; padding:24px;">No audit entries</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pagination">
+    {% if offset > 0 %}
+    <a href="/ops/audit?offset={{ [0, offset-limit]|max }}&limit={{ limit }}{% if filters.resource_type %}&resource_type={{ filters.resource_type }}{% endif %}{% if filters.actor %}&actor={{ filters.actor }}{% endif %}" class="btn btn-sm btn-secondary">← Prev</a>
+    {% endif %}
+    <span style="color:var(--text-muted);">Showing {{ offset + 1 }}–{{ offset + entries|length }}</span>
+    {% if entries|length == limit %}
+    <a href="/ops/audit?offset={{ offset+limit }}&limit={{ limit }}{% if filters.resource_type %}&resource_type={{ filters.resource_type }}{% endif %}{% if filters.actor %}&actor={{ filters.actor }}{% endif %}" class="btn btn-sm btn-secondary">Next →</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

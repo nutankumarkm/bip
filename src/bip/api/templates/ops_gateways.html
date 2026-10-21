@@ -1,0 +1,40 @@
+{% extends "ops_base.html" %}
+{% block title %}Gateways — BIP Ops{% endblock %}
+{% block page_title %}Gateways{% endblock %}
+{% block content %}
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Org</th><th>Status</th><th>Last Seen</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for g in gateways %}
+      <tr>
+        <td><code style="font-size:11px;">{{ g.id[:8] }}…</code></td>
+        <td>{{ g.name or '—' }}</td>
+        <td style="color:var(--text-muted);">{{ g.org_name }}</td>
+        <td>
+          {% if g.active %}
+            <span class="badge badge-green">active</span>
+          {% else %}
+            <span class="badge badge-red">revoked</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--text-muted);">{{ g.last_seen.strftime('%Y-%m-%d %H:%M') if g.last_seen else '—' }}</td>
+        <td>
+          {% if g.active %}
+          <form method="post" action="/ops/gateways/{{ g.id }}/revoke-request" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <button class="btn btn-sm btn-danger" type="submit"
+              onclick="return confirm('Submit revoke request for approval?')">Revoke…</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="color:var(--text-muted); text-align:center; padding:24px;">No gateways</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

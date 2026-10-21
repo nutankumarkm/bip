@@ -1,0 +1,32 @@
+{% extends "ops_base.html" %}
+{% block title %}Devices — BIP Ops{% endblock %}
+{% block page_title %}Devices{% endblock %}
+{% block content %}
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Serial</th><th>Family</th><th>Mode</th><th>Site</th><th>Org</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for d in devices %}
+      <tr>
+        <td><code>{{ d.serial or '—' }}</code></td>
+        <td>{{ d.family }}</td>
+        <td><span class="badge badge-gray">{{ d.mode }}</span></td>
+        <td style="color:var(--text-muted);">{{ d.site_name }}</td>
+        <td style="color:var(--text-muted);">{{ d.org_name }}</td>
+        <td>
+          {% if d.active %}
+            <span class="badge badge-green">active</span>
+          {% else %}
+            <span class="badge badge-red">inactive</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="color:var(--text-muted); text-align:center; padding:24px;">No devices</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

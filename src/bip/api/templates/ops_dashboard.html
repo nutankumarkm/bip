@@ -1,0 +1,60 @@
+{% extends "ops_base.html" %}
+{% block title %}Dashboard — BIP Ops{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.partners }}</div>
+    <div class="stat-label">Partners</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.orgs }}</div>
+    <div class="stat-label">Organisations</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.sites }}</div>
+    <div class="stat-label">Sites</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.devices }}</div>
+    <div class="stat-label">Devices</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.gateways }}</div>
+    <div class="stat-label">Gateways</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ stats.pending_approvals }}</div>
+    <div class="stat-label">Pending Approvals</div>
+  </div>
+</div>
+
+{% if stats.pending_approvals > 0 %}
+<div class="card" style="border-color: rgba(245,158,11,0.4);">
+  <div class="card-title">⚠️ Pending Approvals</div>
+  <p style="color: var(--text-muted); font-size: 13px;">{{ stats.pending_approvals }} action(s) require a second reviewer. <a href="/ops/approvals">Review now →</a></p>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">Recent Audit Events</div>
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Actor</th><th>Action</th><th>Resource</th></tr>
+    </thead>
+    <tbody>
+      {% for entry in audit_entries %}
+      <tr>
+        <td style="color:var(--text-muted); white-space: nowrap;">{{ entry.ts.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ entry.actor }}</td>
+        <td><span class="badge badge-blue">{{ entry.action }}</span></td>
+        <td><code style="font-size:12px;">{{ entry.resource_type }}/{{ entry.resource_id[:8] }}…</code></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" style="color:var(--text-muted); text-align: center; padding: 24px;">No audit events yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if audit_entries %}<div style="margin-top:12px;"><a href="/ops/audit" class="btn btn-sm btn-secondary">View all →</a></div>{% endif %}
+</div>
+{% endblock %}

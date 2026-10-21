@@ -1,0 +1,36 @@
+{% extends "ops_base.html" %}
+{% block title %}Partners — BIP Ops{% endblock %}
+{% block page_title %}Partners{% endblock %}
+{% block topbar_actions %}
+<form method="post" action="/ops/partners" style="display:flex; gap:8px; align-items:center;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <input class="form-control" style="width:200px" type="text" name="name" placeholder="Partner name" required />
+  <button class="btn btn-primary btn-sm" type="submit">+ Add Partner</button>
+</form>
+{% endblock %}
+{% block content %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Created</th><th>Orgs</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for p in partners %}
+      <tr>
+        <td><code style="font-size:11px;">{{ p.id[:8] }}…</code></td>
+        <td><strong>{{ p.name }}</strong></td>
+        <td style="color:var(--text-muted);">{{ p.created_at.strftime('%Y-%m-%d') }}</td>
+        <td>{{ p.org_count }}</td>
+        <td>
+          <a href="/ops/orgs?partner_id={{ p.id }}" class="btn btn-sm btn-secondary">View Orgs</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="color:var(--text-muted); text-align:center; padding:24px;">No partners yet</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "ops_base.html" %}
+{% block title %}Approvals — BIP Ops{% endblock %}
+{% block page_title %}Pending Approvals{% endblock %}
+{% block content %}
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <div class="card-title">Pending ({{ pending|length }})</div>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Action</th><th>Resource</th><th>Requested By</th><th>When</th><th>Approve / Reject</th></tr>
+    </thead>
+    <tbody>
+      {% for a in pending %}
+      <tr>
+        <td><code style="font-size:11px;">{{ a.id[:8] }}…</code></td>
+        <td><span class="badge badge-yellow">{{ a.action }}</span></td>
+        <td><code style="font-size:11px;">{{ a.resource_type }}/{{ a.resource_id[:8] }}…</code></td>
+        <td>{{ a.requested_by }}</td>
+        <td style="color:var(--text-muted);">{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>
+          {% if user.email != a.requested_by %}
+          <form method="post" action="/ops/approvals/{{ a.id }}/review" style="display:inline-flex; gap:6px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <input type="hidden" name="approve" value="1" />
+            <button class="btn btn-sm btn-primary" type="submit">✓ Approve</button>
+          </form>
+          <form method="post" action="/ops/approvals/{{ a.id }}/review" style="display:inline-flex; gap:6px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+            <input type="hidden" name="approve" value="0" />
+            <button class="btn btn-sm btn-danger" type="submit">✗ Reject</button>
+          </form>
+          {% else %}
+          <span style="color:var(--text-muted); font-size:12px;">Awaiting second reviewer</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="color:var(--text-muted); text-align:center; padding:24px;">No pending approvals 🎉</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-title">Resolved</div>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Action</th><th>Status</th><th>Requested By</th><th>Reviewed By</th><th>Note</th></tr>
+    </thead>
+    <tbody>
+      {% for a in resolved %}
+      <tr>
+        <td><code style="font-size:11px;">{{ a.id[:8] }}…</code></td>
+        <td><span class="badge badge-gray">{{ a.action }}</span></td>
+        <td>
+          {% if a.status == 'approved' %}<span class="badge badge-green">approved</span>
+          {% else %}<span class="badge badge-red">rejected</span>{% endif %}
+        </td>
+        <td>{{ a.requested_by }}</td>
+        <td>{{ a.reviewed_by or '—' }}</td>
+        <td style="color:var(--text-muted);">{{ a.review_note or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="color:var(--text-muted); text-align:center; padding:24px;">No resolved approvals</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
