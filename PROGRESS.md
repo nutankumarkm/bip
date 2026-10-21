@@ -8,7 +8,11 @@
 **Next:** M1 — Data model and tenancy migrations
 
 ## M1 — Data and tenancy
-**Status:** NOT STARTED
+**Status:** DONE
+**Built:** Initial migration with all 27 tables, punch_events partitioned by month (current + 3 ahead + default), bip_app and bip_system roles, RLS policies on all org-scoped tables with FORCE ROW LEVEL SECURITY, partition maintenance function, seed script (partner, API client, org, site, staff admin)
+**Evidence:** 16 unit tests pass (including 5 schema validation tests); lint clean; integration tests written for RLS isolation and partition maintenance (require Postgres)
+**Open issues:** Integration tests not run yet (need Docker compose up + migrate); person_sites table has no org_id (RLS via join to people)
+**Next:** M2 — SDK
 
 ## M2 — SDK
 **Status:** NOT STARTED
