@@ -284,3 +284,151 @@ class TestOpsPortalUsers:
         )
         assert resp3.status_code == 303
         assert resp3.headers["location"] == "/portal/"
+
+
+# ---------------------------------------------------------------------------
+# Self-serve: Sites
+# ---------------------------------------------------------------------------
+
+
+class TestPortalSites:
+    def test_sites_page_renders(self, portal_session):
+        resp = portal_session.get("/portal/sites")
+        assert resp.status_code == 200
+        assert "Sites" in resp.text
+
+    def test_create_site(self, portal_session):
+        from bip.api.routes.v1 import _sites
+        resp = portal_session.post(
+            "/portal/sites",
+            data={"name": "Main Gate", "address": "123 School Rd", "timezone": "Asia/Kolkata"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert "Main" in resp.headers["location"]
+        sites = [s for s in _sites.values() if s.get("name") == "Main Gate"]
+        assert len(sites) == 1
+        assert sites[0]["timezone"] == "Asia/Kolkata"
+
+    def test_site_scoped_to_org(self, portal_session, org_id):
+        from bip.api.routes.v1 import _sites
+        portal_session.post("/portal/sites", data={"name": "Block B", "address": "", "timezone": "UTC"})
+        sites = [s for s in _sites.values() if s.get("name") == "Block B"]
+        assert sites[0]["org_id"] == org_id
+
+    def test_site_appears_in_list(self, portal_session):
+        portal_session.post("/portal/sites", data={"name": "Library Gate", "address": "", "timezone": "UTC"})
+        resp = portal_session.get("/portal/sites")
+        assert "Library Gate" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Self-serve: Devices
+# ---------------------------------------------------------------------------
+
+
+class TestPortalDevices:
+    def test_devices_page_renders(self, portal_session):
+        resp = portal_session.get("/portal/devices")
+        assert resp.status_code == 200
+        assert "Devices" in resp.text
+
+    def test_register_device(self, portal_session, org_id):
+        from bip.api.routes.v1 import _devices
+        resp = portal_session.post(
+            "/portal/devices",
+            data={"serial": "ZK12345678", "label": "Front Gate Terminal", "family": "zk_adms", "site_id": ""},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert "ZK12345678" in resp.headers["location"] or "registered" in resp.headers["location"]
+        devs = [d for d in _devices.values() if d.get("serial") == "ZK12345678"]
+        assert len(devs) == 1
+        assert devs[0]["org_id"] == org_id
+
+    def test_registered_device_appears_in_list(self, portal_session):
+        portal_session.post("/portal/devices", data={"serial": "MYDEV001", "label": "Lab Scanner", "family": "zk_adms", "site_id": ""})
+        resp = portal_session.get("/portal/devices")
+        assert "Lab Scanner" in resp.text
+
+    def test_setup_instructions_shown_after_registration(self, portal_session):
+        portal_session.post("/portal/devices", data={"serial": "DEMO001", "label": "Demo", "family": "zk_adms", "site_id": ""})
+        resp = portal_session.get("/portal/devices")
+        assert "8081" in resp.text or "setup" in resp.text.lower()
+
+    def test_device_serial_stored_uppercase(self, portal_session):
+        from bip.api.routes.v1 import _devices
+        portal_session.post("/portal/devices", data={"serial": "lowercase123", "label": "Test", "family": "zk_adms", "site_id": ""})
+        devs = [d for d in _devices.values() if d.get("label") == "Test"]
+        assert devs[0]["serial"] == "LOWERCASE123"
+
+
+# ---------------------------------------------------------------------------
+# Self-serve: Integrations / Webhooks
+# ---------------------------------------------------------------------------
+
+
+class TestPortalIntegrations:
+    def test_integrations_page_renders(self, portal_session):
+        resp = portal_session.get("/portal/integrations")
+        assert resp.status_code == 200
+        assert "Integrations" in resp.text
+
+    def test_create_webhook(self, portal_session, org_id):
+        from bip.api.routes.v1 import _webhooks
+        resp = portal_session.post(
+            "/portal/integrations/webhooks",
+            data={"name": "My ERP", "url": "https://erp.school.test/punch"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert "integrations" in resp.headers["location"]
+        hooks = [w for w in _webhooks.values() if w.get("name") == "My ERP"]
+        assert len(hooks) == 1
+        assert hooks[0]["org_id"] == org_id
+        assert hooks[0]["url"] == "https://erp.school.test/punch"
+
+    def test_webhook_scoped_to_org(self, portal_session, org_id):
+        from bip.api.routes.v1 import _webhooks
+        portal_session.post("/portal/integrations/webhooks", data={"name": "Hook1", "url": "https://a.test/hook"})
+        hooks = [w for w in _webhooks.values() if w.get("name") == "Hook1"]
+        assert hooks[0]["org_id"] == org_id
+
+    def test_signing_secret_generated(self, portal_session):
+        from bip.api.routes.v1 import _webhook_secrets, _webhooks
+        portal_session.post("/portal/integrations/webhooks", data={"name": "SecretTest", "url": "https://b.test/hook"})
+        hooks = [w for w in _webhooks.values() if w.get("name") == "SecretTest"]
+        assert _webhook_secrets.get(hooks[0]["id"]), "No signing secret generated"
+
+    def test_webhook_appears_in_list(self, portal_session):
+        portal_session.post("/portal/integrations/webhooks", data={"name": "ListTest", "url": "https://c.test/hook"})
+        resp = portal_session.get("/portal/integrations")
+        assert "ListTest" in resp.text
+
+    def test_delete_webhook(self, portal_session):
+        from bip.api.routes.v1 import _webhooks
+        portal_session.post("/portal/integrations/webhooks", data={"name": "ToDelete", "url": "https://d.test/hook"})
+        hooks = [w for w in _webhooks.values() if w.get("name") == "ToDelete"]
+        wh_id = hooks[0]["id"]
+        resp = portal_session.post(f"/portal/integrations/webhooks/{wh_id}/delete", follow_redirects=False)
+        assert resp.status_code == 303
+        assert wh_id not in _webhooks
+
+    def test_cannot_delete_other_orgs_webhook(self, client, org_id):
+        """A portal user should not be able to delete another org's webhook."""
+        from bip.api.routes.v1 import _webhook_secrets, _webhooks
+        import uuid
+        other_wh_id = str(uuid.uuid4())
+        _webhooks[other_wh_id] = {"id": other_wh_id, "org_id": "other_org", "name": "Other", "url": "https://x.test/", "active": True, "events": []}
+
+        create_portal_user("hacker@evil.test", "pass123!", org_id)
+        resp = client.post("/portal/login", data={"email": "hacker@evil.test", "password": "pass123!"}, follow_redirects=False)
+        token = resp.cookies.get(PORTAL_SESSION_COOKIE)
+        authed = TestClient(app, cookies={PORTAL_SESSION_COOKIE: token})
+        authed.post(f"/portal/integrations/webhooks/{other_wh_id}/delete")
+        assert other_wh_id in _webhooks, "Should not have deleted another org's webhook"
+
+    def test_unauthenticated_integrations_redirects(self, client):
+        resp = client.get("/portal/integrations", follow_redirects=False)
+        assert resp.status_code == 303
+        assert "/portal/login" in resp.headers["location"]

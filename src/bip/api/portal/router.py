@@ -270,12 +270,12 @@ async def portal_people_post(
 
 
 # ---------------------------------------------------------------------------
-# Devices
+# Devices  (self-serve registration)
 # ---------------------------------------------------------------------------
 
 
 @router.get("/devices", response_class=HTMLResponse)
-async def portal_devices(request: Request) -> Any:
+async def portal_devices(request: Request, success: str = "", error: str = "") -> Any:
     sess = _require_session(request)
     if not sess:
         return RedirectResponse("/portal/login", status_code=303)
@@ -292,20 +292,89 @@ async def portal_devices(request: Request) -> Any:
         for d in data["devices"]
     ]
 
+    # Get server host for setup instructions
+    host = request.headers.get("host", "your-server.example.com").split(":")[0]
+
     return _render(
         request,
         "portal_devices.html",
-        _ctx(request, sess, "devices", org=data["org"], devices=devices_enriched),
+        _ctx(
+            request, sess, "devices",
+            org=data["org"],
+            devices=devices_enriched,
+            sites=data["sites"],
+            server_host=host,
+            success=success,
+            error=error,
+        ),
+    )
+
+
+@router.post("/devices")
+async def portal_devices_post(
+    request: Request,
+    serial: str = Form(...),
+    label: str = Form(...),
+    family: str = Form("zk_adms"),
+    site_id: str = Form(""),
+) -> Any:
+    sess = _require_session(request)
+    if not sess:
+        return RedirectResponse("/portal/login", status_code=303)
+
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _devices, _sites
+
+    org_id = sess["org_id"]
+    serial_clean = serial.strip().upper()
+    label_clean = label.strip()
+
+    # If no site chosen, use first site for this org or leave blank
+    if not site_id:
+        org_sites = [s for s in _sites.values() if s.get("org_id") == org_id]
+        site_id = org_sites[0]["id"] if org_sites else ""
+
+    did = str(uuid.uuid4())
+    _devices[did] = {
+        "id": did,
+        "serial": serial_clean,
+        "serial_number": serial_clean,
+        "label": label_clean,
+        "name": label_clean,
+        "family": family,
+        "vendor": family.split("_")[0] if "_" in family else family,
+        "model": family,
+        "site_id": site_id,
+        "org_id": org_id,
+        "mode": "push",
+        "status": "ready",
+        "is_active": True,
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+
+    # Whitelist in edge store so push traffic is immediately accepted
+    try:
+        from bip.edge.adms import _store
+        await _store.register_device(serial_clean, {"id": did, "status": "active", "serial": serial_clean})
+    except Exception:
+        pass
+
+    return RedirectResponse(
+        f"/portal/devices?success=Machine+'{label_clean}'+({serial_clean})+registered!+See+setup+instructions+below.",
+        status_code=303,
     )
 
 
 # ---------------------------------------------------------------------------
-# Sites
+# Sites  (self-serve creation)
 # ---------------------------------------------------------------------------
 
 
 @router.get("/sites", response_class=HTMLResponse)
-async def portal_sites(request: Request) -> Any:
+async def portal_sites(request: Request, success: str = "", error: str = "") -> Any:
     sess = _require_session(request)
     if not sess:
         return RedirectResponse("/portal/login", status_code=303)
@@ -321,5 +390,116 @@ async def portal_sites(request: Request) -> Any:
     return _render(
         request,
         "portal_sites.html",
-        _ctx(request, sess, "sites", org=data["org"], sites=sites_enriched),
+        _ctx(request, sess, "sites", org=data["org"], sites=sites_enriched, success=success, error=error),
     )
+
+
+@router.post("/sites")
+async def portal_sites_post(
+    request: Request,
+    name: str = Form(...),
+    address: str = Form(""),
+    timezone: str = Form("Asia/Kolkata"),
+) -> Any:
+    sess = _require_session(request)
+    if not sess:
+        return RedirectResponse("/portal/login", status_code=303)
+
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _sites
+
+    sid = str(uuid.uuid4())
+    _sites[sid] = {
+        "id": sid,
+        "org_id": sess["org_id"],
+        "name": name.strip(),
+        "address": address.strip() or None,
+        "timezone": timezone,
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    return RedirectResponse(f"/portal/sites?success=Site+'{name}'+created+successfully!", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Integrations / Webhooks  (self-serve)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/integrations", response_class=HTMLResponse)
+async def portal_integrations(request: Request, success: str = "", error: str = "") -> Any:
+    sess = _require_session(request)
+    if not sess:
+        return RedirectResponse("/portal/login", status_code=303)
+
+    from bip.api.routes.v1 import _webhook_secrets, _webhooks
+
+    org_id = sess["org_id"]
+    data = _org_context(sess)
+    webhooks = [w for w in _webhooks.values() if w.get("org_id") == org_id]
+
+    return _render(
+        request,
+        "portal_integrations.html",
+        _ctx(
+            request, sess, "integrations",
+            org=data["org"],
+            webhooks=webhooks,
+            secrets=_webhook_secrets,
+            success=success,
+            error=error,
+        ),
+    )
+
+
+@router.post("/integrations/webhooks")
+async def portal_integrations_post(
+    request: Request,
+    name: str = Form(...),
+    url: str = Form(...),
+) -> Any:
+    sess = _require_session(request)
+    if not sess:
+        return RedirectResponse("/portal/login", status_code=303)
+
+    import secrets
+    import uuid
+    from datetime import UTC, datetime
+
+    from bip.api.routes.v1 import _webhook_secrets, _webhooks
+
+    wh_id = str(uuid.uuid4())
+    secret = secrets.token_urlsafe(32)
+    _webhooks[wh_id] = {
+        "id": wh_id,
+        "name": name.strip(),
+        "org_id": sess["org_id"],
+        "url": url.strip(),
+        "events": ["punch.created", "device.status_changed"],
+        "active": True,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    _webhook_secrets[wh_id] = secret
+
+    return RedirectResponse(
+        f"/portal/integrations?success=Webhook+'{name}'+connected!+Copy+your+signing+secret+below.",
+        status_code=303,
+    )
+
+
+@router.post("/integrations/webhooks/{wh_id}/delete")
+async def portal_webhook_delete(request: Request, wh_id: str) -> Any:
+    sess = _require_session(request)
+    if not sess:
+        return RedirectResponse("/portal/login", status_code=303)
+
+    from bip.api.routes.v1 import _webhook_secrets, _webhooks
+
+    wh = _webhooks.get(wh_id)
+    if wh and wh.get("org_id") == sess["org_id"]:
+        del _webhooks[wh_id]
+        _webhook_secrets.pop(wh_id, None)
+
+    return RedirectResponse("/portal/integrations?success=Webhook+removed.", status_code=303)

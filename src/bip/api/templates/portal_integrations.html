@@ -1,0 +1,143 @@
+{% extends "portal_base.html" %}
+{% block title %}Integrations — {{ org.name }}{% endblock %}
+{% block page_title %}Integrations & Webhooks{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('add-webhook-modal').style.display='flex'">+ Connect endpoint</button>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px 32px; width:100%; max-width:460px; }
+  .modal h3 { font-size:15px; font-weight:600; margin-bottom:20px; }
+  .modal-close { float:right; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; line-height:1; }
+  .secret-box { background:var(--surface2); border:1px dashed var(--accent); border-radius:6px; padding:10px 14px; font-family:monospace; font-size:12px; word-break:break-all; color:var(--accent); margin-top:8px; cursor:pointer; }
+  .code-block { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:14px; font-family:monospace; font-size:12px; color:var(--text-muted); overflow-x:auto; white-space:pre; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <h3 style="font-size:14px; font-weight:600; margin-bottom:4px;">Webhook endpoints</h3>
+  <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">BIP sends a signed <code style="font-size:12px;">POST</code> request to your URL every time a punch is recorded. Connect your ERP, HRMS, or custom system here.</p>
+
+  {% if webhooks %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Endpoint URL</th>
+        <th>Events</th>
+        <th>Signing secret</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for wh in webhooks %}
+      <tr>
+        <td style="font-weight:500;">{{ wh.name }}</td>
+        <td style="font-size:12px; color:var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ wh.url }}</td>
+        <td style="font-size:11px;">
+          {% for ev in wh.events %}<span class="badge badge-teal" style="margin-right:3px; font-size:10px;">{{ ev }}</span>{% endfor %}
+        </td>
+        <td>
+          {% if secrets.get(wh.id) %}
+          <span class="secret-box" title="Click to copy" onclick="navigator.clipboard.writeText('{{ secrets[wh.id] }}'); this.textContent='Copied!'">
+            {{ secrets[wh.id][:12] }}…
+          </span>
+          {% else %}<span style="color:var(--text-muted); font-size:12px;">—</span>{% endif %}
+        </td>
+        <td>{% if wh.active %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-gray">Off</span>{% endif %}</td>
+        <td>
+          <form method="post" action="/portal/integrations/webhooks/{{ wh.id }}/delete" style="display:inline;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="color:var(--danger); border-color:rgba(239,68,68,0.3);"
+              onclick="return confirm('Remove this webhook?')">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:32px 0; text-align:center;">
+    <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">No webhooks connected yet. Add one to push attendance events to your system.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('add-webhook-modal').style.display='flex'">+ Connect your first endpoint</button>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3 style="font-size:14px; font-weight:600; margin-bottom:12px;">📦 Webhook payload format</h3>
+  <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">BIP sends <code style="font-size:12px;">Content-Type: application/json</code> with a <code style="font-size:12px;">BIP-Signature</code> header. Verify it with your signing secret:</p>
+  <div class="code-block">POST https://your-endpoint.example.com/bip-webhook
+Content-Type: application/json
+BIP-Signature: t=1729601234,v1=abc123...
+
+{
+  "event": "punch.created",
+  "timestamp": "2026-10-22T09:31:00Z",
+  "punch": {
+    "id": "pnc_abc123",
+    "device_serial": "CDXZ202410001",
+    "device_pin": "1042",
+    "person_name": "Jane Smith",
+    "punch_direction": "in",
+    "verify_mode": "fp",
+    "occurred_at": "2026-10-22T09:31:00Z"
+  }
+}</div>
+
+  <div style="margin-top:16px;">
+    <h4 style="font-size:13px; font-weight:600; margin-bottom:8px;">Signature verification (Python)</h4>
+    <div class="code-block">import hmac, hashlib, time
+
+def verify_bip_signature(payload: bytes, header: str, secret: str) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    ts, sig = parts.get("t", ""), parts.get("v1", "")
+    if abs(time.time() - int(ts)) > 300:   # 5-min clock skew
+        return False
+    expected = hmac.new(secret.encode(), f"{ts}.".encode() + payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig)</div>
+  </div>
+
+  <div style="margin-top:16px;">
+    <h4 style="font-size:13px; font-weight:600; margin-bottom:8px;">Signature verification (Node.js)</h4>
+    <div class="code-block">const crypto = require('crypto');
+function verifyBipSignature(rawBody, header, secret) {
+  const { t, v1 } = Object.fromEntries(header.split(',').map(p => p.split('=')));
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
+}</div>
+  </div>
+</div>
+
+<!-- Add Webhook Modal -->
+<div class="modal-overlay" id="add-webhook-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('add-webhook-modal').style.display='none'">×</button>
+    <h3>Connect webhook endpoint</h3>
+    <form method="post" action="/portal/integrations/webhooks">
+      <div class="form-group">
+        <label>Name *</label>
+        <input class="form-control" type="text" name="name" required placeholder="e.g. My ERP System" autofocus />
+      </div>
+      <div class="form-group">
+        <label>Endpoint URL *</label>
+        <input class="form-control" type="url" name="url" required placeholder="https://erp.myschool.edu/bip/punches" />
+        <span style="font-size:11px; color:var(--text-muted);">Must be a publicly reachable HTTPS URL that accepts POST requests</span>
+      </div>
+      <div class="form-group" style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:8px;">
+        <p style="font-size:12px; color:var(--text-muted);">A signing secret will be generated for you after connecting. Keep it safe — use it to verify every incoming request.</p>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('add-webhook-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Connect</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

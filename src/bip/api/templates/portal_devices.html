@@ -2,6 +2,27 @@
 {% block title %}Devices — {{ org.name }}{% endblock %}
 {% block page_title %}Devices{% endblock %}
 
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('add-device-modal').style.display='flex'">+ Register machine</button>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px 32px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; }
+  .modal h3 { font-size:15px; font-weight:600; margin-bottom:20px; }
+  .modal-close { float:right; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; line-height:1; }
+  .setup-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; }
+  .setup-box h4 { font-size:12px; font-weight:600; color:var(--accent); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.05em; }
+  .setup-step { display:flex; gap:10px; margin-bottom:8px; }
+  .setup-step .step-num { width:18px; height:18px; background:var(--accent); color:#000; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; margin-top:1px; }
+  .setup-step p { color:var(--text-muted); line-height:1.5; }
+  code.highlight { background:var(--surface); border:1px solid var(--border); padding:1px 6px; border-radius:4px; color:var(--accent); }
+  .protocol-tab { display:none; }
+  .protocol-tab.active { display:block; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
   {% if devices %}
@@ -9,7 +30,7 @@
     <thead>
       <tr>
         <th>Label</th>
-        <th>Serial / ID</th>
+        <th>Serial</th>
         <th>Protocol</th>
         <th>Site</th>
         <th>Punches</th>
@@ -19,15 +40,13 @@
     <tbody>
       {% for d in devices %}
       <tr>
-        <td style="font-weight:500;">{{ d.label or d.id[:12] + '…' }}</td>
-        <td style="font-size:12px; color:var(--text-muted);">
-          {% if d.serial_number %}<code>{{ d.serial_number }}</code>{% else %}<code>{{ d.id[:16] }}…</code>{% endif %}
-        </td>
-        <td><span class="badge badge-teal" style="font-size:10px; text-transform:uppercase;">{{ d.protocol or 'adms' }}</span></td>
+        <td style="font-weight:500;">{{ d.label or d.name or d.id[:12] + '…' }}</td>
+        <td><code style="font-size:12px;">{{ d.serial_number or d.serial or '—' }}</code></td>
+        <td><span class="badge badge-teal" style="font-size:10px; text-transform:uppercase;">{{ d.family or d.protocol or 'adms' }}</span></td>
         <td style="font-size:13px; color:var(--text-muted);">{{ d.site_name }}</td>
         <td>{{ d.punch_count }}</td>
         <td>
-          {% if d.status == 'active' or d.is_active %}<span class="badge badge-green">Active</span>
+          {% if d.is_active or d.active %}<span class="badge badge-green">Active</span>
           {% else %}<span class="badge badge-gray">Inactive</span>{% endif %}
         </td>
       </tr>
@@ -36,9 +55,90 @@
   </table>
   {% else %}
   <div style="padding:40px 0; text-align:center;">
-    <p style="color:var(--text-muted); font-size:13px; margin-bottom:8px;">No devices registered to this organisation.</p>
-    <p style="color:var(--text-muted); font-size:12px;">Contact your platform administrator to provision devices.</p>
+    <p style="color:var(--text-muted); font-size:13px; margin-bottom:8px;">No machines registered yet.</p>
+    <p style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">Click "Register machine" to add your first biometric terminal.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('add-device-modal').style.display='flex'">+ Register your first machine</button>
   </div>
   {% endif %}
+</div>
+
+{% if devices %}
+<div class="card">
+  <h3 style="font-size:14px; font-weight:600; margin-bottom:16px;">📡 Device Setup Instructions</h3>
+  <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Configure each biometric machine to push attendance data to:</p>
+  <div class="setup-box" style="margin-bottom:16px;">
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div><span style="color:var(--text-muted); font-size:11px;">Server address</span><br/><code class="highlight" style="font-size:13px;">{{ server_host }}</code></div>
+      <div><span style="color:var(--text-muted); font-size:11px;">Port (ZKTeco ADMS)</span><br/><code class="highlight" style="font-size:13px;">8081</code></div>
+      <div><span style="color:var(--text-muted); font-size:11px;">Protocol</span><br/><code class="highlight" style="font-size:13px;">HTTP (iClock/ADMS)</code></div>
+    </div>
+  </div>
+  <div class="setup-box">
+    <h4>ZKTeco / Realand machines (most common)</h4>
+    {% set steps = [
+      "On the machine keypad: Menu → Comm → Ethernet → set Server Address to <strong>" ~ server_host ~ "</strong>",
+      "Set Server Port to <strong>8081</strong>",
+      "Set Server Path to <strong>/iclock/cdata</strong>",
+      "Enable <strong>Push Mode</strong> (also called ADMS or iClock Push)",
+      "Save and reboot — punches appear in your Attendance Feed within seconds"
+    ] %}
+    {% for step in steps %}
+    <div class="setup-step">
+      <div class="step-num">{{ loop.index }}</div>
+      <p>{{ step | safe }}</p>
+    </div>
+    {% endfor %}
+    <p style="margin-top:12px; color:var(--text-muted); font-size:11px;">Note: menu labels vary by firmware. Look for "ADMS", "Cloud Service", or "Server" under Comm / Network settings.</p>
+  </div>
+</div>
+{% endif %}
+
+<!-- Register Machine Modal -->
+<div class="modal-overlay" id="add-device-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('add-device-modal').style.display='none'">×</button>
+    <h3>Register biometric machine</h3>
+    <form method="post" action="/portal/devices">
+      <div class="form-group">
+        <label>Machine label / name *</label>
+        <input class="form-control" type="text" name="label" required placeholder="e.g. Main Gate, Lab Block" autofocus />
+      </div>
+      <div class="form-group">
+        <label>Serial number *</label>
+        <input class="form-control" type="text" name="serial" required placeholder="e.g. CDXZ202410001" />
+        <span style="font-size:11px; color:var(--text-muted);">Found on the back of the machine or under Menu → Device Info</span>
+      </div>
+      <div class="form-group">
+        <label>Device type / protocol</label>
+        <select class="form-control" name="family">
+          <option value="zk_adms">ZKTeco / Realand (ADMS push)</option>
+          <option value="hik_isapi">Hikvision (ISAPI pull)</option>
+          <option value="biotime">ZKBioTime / BioCloud</option>
+          <option value="cosec">Matrix COSEC</option>
+          <option value="db_read">Database reader</option>
+          <option value="file_import">File import only</option>
+        </select>
+      </div>
+      {% if sites %}
+      <div class="form-group">
+        <label>Gate / site (optional)</label>
+        <select class="form-control" name="site_id">
+          <option value="">— auto-assign —</option>
+          {% for s in sites %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="form-group" style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:12px; margin-top:8px;">
+        <p style="font-size:12px; color:var(--text-muted);">After registering, configure the machine to push to:<br/>
+        <strong style="color:var(--accent);">{{ server_host }}:8081</strong> — setup instructions shown on next page.</p>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('add-device-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-primary">Register machine</button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
