@@ -1,0 +1,110 @@
+# BIP Biometric Capability Registry (ADR-002, section 8.8)
+# Status levels:
+#   declared: vendor or open-source documentation claims support (default)
+#   probed: device returned positive feature flag during handshake/probe
+#   verified: verified in hardware device lab with certified test suite
+#   unsupported: known not supported on this model / family
+
+families:
+  zk_adms:
+    description: "ZKTeco ADMS / iClock HTTP push protocol"
+    mode: "push"
+    models:
+      "ZK-ADMS-*":
+        description: "ZKTeco and eSSL ADMS firmware terminals"
+        capabilities:
+          punches.stream: declared
+          punches.replay: declared
+          people.read: declared
+          people.write: declared
+          people.delete: declared
+          enrol.remote: declared
+          device.time.set: declared
+          device.info: declared
+          templates.relay: unsupported
+          logs.clear: declared
+
+  zk_tcp:
+    description: "ZKTeco standalone binary protocol over TCP 4370"
+    mode: "pull"
+    models:
+      "ZK-TCP-*":
+        description: "Standalone terminals via pyzk adapter"
+        capabilities:
+          punches.pull: declared
+          people.read: declared
+          people.write: declared
+          people.delete: declared
+          device.time.set: declared
+          device.info: declared
+          templates.relay: unsupported
+
+  hik_isapi:
+    description: "Hikvision Access Control ISAPI HTTP/HTTPS"
+    mode: "pull"
+    models:
+      "DS-K1T*":
+        description: "Hikvision MinMoe face & card terminals (DS-K1T671, DS-K1T341, etc.)"
+        capabilities:
+          punches.pull: declared
+          people.read: declared
+          people.write: declared
+          people.delete: declared
+          device.time.set: declared
+          device.info: declared
+          templates.relay: unsupported
+
+  biotime:
+    description: "ZKBioTime server REST API pull"
+    mode: "vendor"
+    models:
+      "ZKBioTime-8.5+":
+        description: "ZKBioTime 8.5/9.0 central attendance server"
+        capabilities:
+          punches.pull: declared
+          people.read: declared
+          people.write: declared
+          people.delete: declared
+          device.info: declared
+          device.time.set: unsupported
+
+  cosec:
+    description: "Matrix COSEC enterprise integration (stub)"
+    mode: "vendor"
+    models:
+      "Matrix-COSEC-*":
+        description: "Matrix COSEC server (requires site license and Matrix API manual)"
+        capabilities:
+          punches.pull: unsupported
+          people.read: unsupported
+          people.write: unsupported
+          people.delete: unsupported
+          device.info: unsupported
+
+  db_read:
+    description: "eTimeTrackLite SQL Server / Access read-only integration"
+    mode: "pull"
+    models:
+      "eTimeTrackLite-*":
+        description: "Direct ODBC database query (DeviceLogs monthly tables)"
+        capabilities:
+          punches.pull: declared
+          device.info: declared
+          people.read: unsupported
+          people.write: unsupported
+          people.delete: unsupported
+          device.time.set: unsupported
+
+  file_import:
+    description: "Manual export file import (CSV, XLSX, ZK USB attlog.dat)"
+    mode: "file"
+    models:
+      "File-Import-*":
+        description: "Row-validated file imports with automatic deduplication"
+        capabilities:
+          punches.pull: declared
+          device.info: declared
+          people.read: unsupported
+          people.write: unsupported
+          people.delete: unsupported
+          device.time.set: unsupported

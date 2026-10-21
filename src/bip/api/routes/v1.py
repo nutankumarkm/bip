@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import base64
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from bip.api.auth import TokenPayload, check_org_access, get_current_client, require_scope
+from bip.connectors.file_import.importer import FileImporter
 
 router = APIRouter(prefix="/v1")
 
@@ -72,6 +74,23 @@ class MatchSuggestion(BaseModel):
     reason: str
 
 
+class VendorConnectionCreate(BaseModel):
+    site_id: str
+    vendor: Literal["biotime", "cosec"]
+    base_url: str
+    credentials: dict[str, Any]
+
+
+class FileImportRequest(BaseModel):
+    site_id: str
+    device_id: str | None = None
+    filename: str
+    format: Literal["csv", "xlsx", "dat"] = "csv"
+    content_base64: str | None = None
+    content_text: str | None = None
+    mapping: dict[str, str] | None = None
+
+
 # --- In-memory stores for testing (production uses Postgres) ---
 
 _orgs: dict[str, dict[str, Any]] = {}
@@ -87,6 +106,8 @@ _enrolments: dict[str, dict[str, Any]] = {}
 _commands: dict[str, dict[str, Any]] = {}
 _command_seq = 0
 _pin_counters: dict[str, int] = {}
+_vendor_connections: dict[str, dict[str, Any]] = {}
+_imports: dict[str, dict[str, Any]] = {}
 
 
 def reset_stores() -> None:
@@ -104,6 +125,8 @@ def reset_stores() -> None:
     _commands.clear()
     _command_seq = 0
     _pin_counters.clear()
+    _vendor_connections.clear()
+    _imports.clear()
 
 
 def add_test_enrolment(person_id: str, device_id: str, **kwargs: Any) -> dict[str, Any]:
@@ -777,3 +800,113 @@ async def reconcile(
         "extra": [{"person_id": pid} for pid in extra],
         "in_sync": len(missing) == 0 and len(extra) == 0,
     }
+
+
+# --- Vendor connections endpoints ---
+
+
+@router.post("/orgs/{org_id}/vendor-connections", status_code=status.HTTP_201_CREATED)
+async def create_vendor_connection(
+    org_id: str,
+    body: VendorConnectionCreate,
+    client: TokenPayload = Depends(require_scope("devices:write")),
+) -> dict:
+    check_org_access(org_id, client)
+    conn_id = str(uuid.uuid4())
+    conn = {
+        "id": conn_id,
+        "org_id": org_id,
+        "site_id": body.site_id,
+        "vendor": body.vendor,
+        "base_url": body.base_url,
+        "status": "active",
+        "last_sync_at": None,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    _vendor_connections[conn_id] = conn
+    return conn
+
+
+@router.get("/orgs/{org_id}/vendor-connections")
+async def list_vendor_connections(
+    org_id: str,
+    client: TokenPayload = Depends(require_scope("devices:read")),
+) -> list[dict]:
+    check_org_access(org_id, client)
+    return [c for c in _vendor_connections.values() if c["org_id"] == org_id]
+
+
+# --- File import endpoints ---
+
+
+@router.post("/orgs/{org_id}/imports", status_code=status.HTTP_201_CREATED)
+async def create_import(
+    org_id: str,
+    body: FileImportRequest,
+    client: TokenPayload = Depends(require_scope("imports:write")),
+) -> dict:
+    check_org_access(org_id, client)
+
+    raw_data: str | bytes = ""
+    if body.content_base64:
+        raw_data = base64.b64decode(body.content_base64)
+    elif body.content_text:
+        raw_data = body.content_text
+    else:
+        raise HTTPException(status_code=400, detail="Missing file content")
+
+    importer = FileImporter()
+    if body.format == "csv":
+        report = importer.parse_csv(raw_data, body.mapping)
+    elif body.format == "xlsx":
+        if isinstance(raw_data, str):
+            raw_data = raw_data.encode()
+        report = importer.parse_xlsx(raw_data, body.mapping)
+    elif body.format == "dat":
+        report = importer.parse_dat(raw_data)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {body.format}")
+
+    # Ingest valid punches
+    dev_id = body.device_id or "FILE-IMPORT"
+    for punch in report.punches:
+        add_test_punch(
+            org_id=org_id,
+            site_id=body.site_id,
+            device_id=dev_id,
+            pin=punch.device_pin,
+            occurred_at=punch.device_local_time,
+            verify_mode=punch.verify_mode,
+            source="file",
+        )
+
+    import_id = str(uuid.uuid4())
+    record = {
+        "id": import_id,
+        "org_id": org_id,
+        "site_id": body.site_id,
+        "device_id": body.device_id,
+        "filename": body.filename,
+        "format": body.format,
+        "status": "completed",
+        "rows_total": report.rows_total,
+        "rows_ok": report.rows_ok,
+        "rows_failed": report.rows_failed,
+        "errors": [e.model_dump() for e in report.errors],
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    _imports[import_id] = record
+    return record
+
+
+@router.get("/orgs/{org_id}/imports/{import_id}")
+async def get_import(
+    org_id: str,
+    import_id: str,
+    client: TokenPayload = Depends(require_scope("devices:read")),
+) -> dict:
+    check_org_access(org_id, client)
+    record = _imports.get(import_id)
+    if not record or record["org_id"] != org_id:
+        raise HTTPException(status_code=404, detail="Import not found")
+    return record
